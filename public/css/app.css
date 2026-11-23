@@ -1,0 +1,64 @@
+:root { color-scheme: light; }
+html, body { height: 100%; }
+.num, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.tnum { font-variant-numeric: tabular-nums; }
+.msi { width: 1em; overflow: hidden; flex-shrink: 0; font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 18px; line-height: 1; display: inline-block; vertical-align: middle; font-variation-settings: 'FILL' 0, 'wght' 400; }
+.msi.sm { font-size: 15px; } .msi.lg { font-size: 22px; }
+
+/* live pulse */
+.pulse { position: relative; display: inline-block; width: 7px; height: 7px; border-radius: 9999px; background: currentColor; }
+.pulse::after { content: ''; position: absolute; inset: -3px; border-radius: 9999px; border: 2px solid currentColor; opacity: .6; animation: pulse 1.6s ease-out infinite; }
+@keyframes pulse { 0% { transform: scale(.6); opacity: .7 } 100% { transform: scale(1.8); opacity: 0 } }
+
+/* new-row flash */
+.flash { animation: flash 1.4s ease-out; }
+@keyframes flash { 0% { background: #e0f2fe } 100% { background: transparent } }
+
+/* thin scrollbars inside panels */
+.no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
+/* nav: labels collapse to icons on narrower windows; the active tab keeps its label */
+.navtab .nav-lbl { display: none; }
+.navtab.on .nav-lbl { display: inline; }
+@media (min-width: 1200px) { .navtab .nav-lbl { display: inline; } }
+.scroll-thin { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+.dark .scroll-thin, .scroll-dark { scrollbar-color: #334155 transparent; }
+
+/* ticker */
+.ticker-track { display: inline-flex; gap: 2.5rem; white-space: nowrap; animation: ticker 80s linear infinite; }
+.ticker:hover .ticker-track { animation-play-state: paused; }
+@keyframes ticker { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+
+/* cartogram tiles */
+.tile { cursor: pointer; transition: transform .12s ease, filter .12s ease; }
+.tile:hover { filter: brightness(1.08); }
+.tile.sel rect { stroke: #0284c7; stroke-width: 3; }
+.tile text { pointer-events: none; font-family: 'JetBrains Mono', monospace; }
+
+/* sortable headers */
+th[data-sort] { cursor: pointer; user-select: none; }
+th[data-sort]:hover { color: #0284c7; }
+
+/* base form controls (replaces the Tailwind forms plugin) */
+/* in @layer base so Tailwind utilities (pl-8, py-1 …) still win */
+@layer base {
+  *, ::before, ::after { border-color: #e2e8f0; } /* v3-style default border colour */
+  input:not([type=range]):not([type=checkbox]), select, textarea { border: 1px solid #cbd5e1; border-radius: .25rem; padding: .375rem .625rem; background-color: #fff; font-size: 14px; line-height: 1.25rem; }
+  .dark input:not([type=range]), .dark select, .dark textarea { background-color: #0A0F1D; border-color: #334155; color: #e2e8f0; }
+  select { padding-right: 1.75rem; }
+  button:disabled { cursor: not-allowed; }
+  a, button { cursor: pointer; }
+}
+
+/* tidy form focus to match Telemetry Civic */
+input:focus, select:focus, textarea:focus { outline: none; border-color: #0284c7 !important; box-shadow: 0 0 0 2px rgba(2,132,199,.15) !important; }
+
+@layer components {
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: .5rem; box-shadow: 0 1px 3px 0 rgba(15,23,42,.05), 0 1px 2px -1px rgba(15,23,42,.05); }
+  .lbl { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 14px; letter-spacing: .08em; font-weight: 600; text-transform: uppercase; color: #64748b; }
+  .dark .lbl, .wall .lbl { color: #94a3b8; }
+}
+
+/* Leaflet map: undo Tailwind's img reset inside the map, keep fonts consistent */
+.leaflet-container img { max-width: none !important; max-height: none !important; }
+.leaflet-container { font-family: inherit; background: #f8fafc; }
+.leaflet-tooltip { font-family: 'Geist', 'Inter', sans-serif; font-size: 12px; }

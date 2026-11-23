@@ -1,0 +1,18 @@
+# Runtime data, caches and logs (created by the server)
+/data/
+*.log
+
+# Local settings and secrets (written by the Settings page)
+.env
+config.json
+
+# Dependencies
+node_modules/
+
+# Editor, OS and AI-assistant workspace files
+.claude/
+CLAUDE.md
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

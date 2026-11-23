@@ -1,0 +1,63 @@
+{
+  "mode": "live",
+  "map": {
+    "basemap": "esri-gray",
+    "customUrl": "",
+    "customAttribution": ""
+  },
+  "port": 4380,
+  "host": "127.0.0.1",
+  "sim": {
+    "tickMs": 2000,
+    "durationTicks": 450,
+    "speed": 1
+  },
+  "streams": [
+    {
+      "id": "cam1",
+      "label": "USA desk",
+      "country": "USA",
+      "type": "youtube",
+      "url": ""
+    },
+    {
+      "id": "cam2",
+      "label": "Victoria tally room",
+      "country": "AUS",
+      "type": "youtube",
+      "url": ""
+    },
+    {
+      "id": "cam3",
+      "label": "Nigeria desk",
+      "country": "NGA",
+      "type": "youtube",
+      "url": ""
+    }
+  ],
+  "live": {
+    "irev": {
+      "enabled": true,
+      "elections": "auto",
+      "statsEverySec": 60,
+      "crawlEveryMin": 30,
+      "gapMs": 1200
+    },
+    "louisiana": {
+      "enabled": true,
+      "dates": "auto"
+    },
+    "democracyclub": {
+      "enabled": true,
+      "days": 21
+    },
+    "vec": {
+      "mode": "sample"
+    },
+    "news": {
+      "enabled": true,
+      "everyMin": 10,
+      "gdelt": true
+    }
+  }
+}
