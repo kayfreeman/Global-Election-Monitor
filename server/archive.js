@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { get, getJson } from './live/http.js';
 import { parseLouisiana } from './live/louisiana.js';
 import { parseCsv, groupResults } from './live/democracyclub.js';
+import { electionOrgContests, EO_YEARS } from './live/electionorg.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const slug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -142,6 +143,7 @@ export function createArchive(dataDir, hub) {
       if (country === 'NGA') { for (const r of declared) add(r.year, r.type === 'PRES' ? 'Presidential' : 'Governorship'); for (const e of await irevQuick()) add(e.year, 'IReV'); }
       if (country === 'USA') { try { for (const e of await Promise.race([laDates(), new Promise((_, j) => setTimeout(() => j(new Error('slow')), 5000))])) add(yearOf(e.ElectionDate), 'Louisiana'); } catch { /* offline or slow: retry next time */ } }
       if (country === 'GBR') for (let y = 2016; y <= nowYear(); y++) add(y, 'Democracy Club');
+      for (const y of EO_YEARS[country] || []) add(y, 'Election.org');
       add(nowYear(), 'current');
       return [...ys.entries()].sort((a, b) => b[0] - a[0]).map(([year, s]) => ({ year, sources: [...s].filter((x) => x !== 'current') }));
     },
@@ -155,7 +157,11 @@ export function createArchive(dataDir, hub) {
       }
       if (country === 'USA') { try { extra = await usa(year); } catch (e) { notes.push(`Louisiana: ${e.message}`); } notes.push('USA: Louisiana is the only state with a free results feed here; other states need the AP licence.'); }
       if (country === 'GBR') { try { extra = await gbr(year); } catch (e) { notes.push(`Democracy Club: ${e.message}`); } }
-      if (country === 'AUS' || country === 'NZL') notes.push('No free year-by-year results feed is available for this country.');
+      if (EO_YEARS[country]?.includes(year)) {
+        try { extra = [...(await cached(`eo3-${country}-${year}`, year, () => electionOrgContests(country, year))), ...extra]; }
+        catch (e) { notes.push(`Election.org: ${e.message}`); }
+      }
+      if (country === 'NZL' || (country === 'AUS' && !EO_YEARS.AUS.includes(year))) notes.push('No free year-by-year results feed is available for this country and year.');
       const errs = extra.filter((c) => c.error).map((c) => c.error); extra = extra.filter((c) => !c.error);
       if (errs.length) notes.push(`${errs.length} fetch error(s): ${errs.slice(0, 3).join('; ')}`);
       const seen = new Set(extra.map((c) => c.id));

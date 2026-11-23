@@ -104,6 +104,7 @@ Navigation is grouped into **Results** (Overview, Live Results, Map, Drilldown),
 | 🇦🇺 Australia | **Victorian Electoral Commission** results feed (XML) | Victorian state election (28 Nov 2026): first preferences, two-candidate-preferred counts and voting centres returned. | Free, but needs a signed **VEC terms-of-use agreement**. **Off** by default. A public *sample* replay is available in Settings for checking the screens; it is labelled TEST DATA. |
 | 🇦🇺 Australia | AEC media feed | Federal elections only. | Free registration (mediafeed@aec.gov.au). No federal election is scheduled. |
 | 🇳🇿 New Zealand | Electoral Commission | — | electionresults.govt.nz is behind a bot check. Request media-feed access from media@elections.govt.nz. |
+| 🇺🇸 🇬🇧 🇦🇺 | **[Election.org](https://election.org/data/api) public data API** | <ul><li>Official certified **US House and Senate** results for 2020, 2022 and 2024, published by the FEC and the House Clerk.</li><li>The **2024 US presidential election** by state, compiled by the FEC.</li><li>The **UK 2024 general election**: all 650 constituencies and every candidate.</li><li>The **Australia 2025 federal election**: all 150 divisions, first preferences and two-candidate-preferred counts.</li></ul> | Free and read-only. Works without a key; an optional `ELECTION_API_KEY` (in `.env` only) is used for US results. Credit: "Data via Election.org". |
 | 🇺🇸 USA (all states) | AP Elections API | Race calls for every state. | **Paid** licence (`AP_API_KEY`). |
 
 ### News
@@ -136,9 +137,10 @@ Pick an **Election year** in the sidebar, on the Overview, on Live Results or on
 | Country | Years available | How |
 |---|---|---|
 | Nigeria | 2011, 2015, 2019–2026 | Bundled INEC declared results, plus IReV's list of elections for each year. |
-| USA | Every year on the Louisiana SoS election calendar | Fetched the first time a year is opened, then cached in `data/archive/`. |
-| UK | 2016 to now | Democracy Club results for every Thursday (UK polling day) of the year. The first load of a past year takes about a minute, then it is cached. |
-| Australia, NZ | Current year only | No free year-by-year source. |
+| USA | 2020, 2022 and 2024 nationwide, plus every year on the Louisiana SoS calendar | Election.org: House and Senate in all three years, presidential by state in 2024. The Louisiana SoS covers its own elections. Each year is fetched the first time it is opened, then cached in `data/archive/`. |
+| UK | 2016 to now; 2024 general election | Democracy Club results for every Thursday (UK polling day) of the year; the first load of a past year takes about a minute, then it is cached. Election.org adds the 2024 general election, with the map coloured by nation. |
+| Australia | 2025 | Election.org: the 2025 federal election, with the map coloured by state. |
+| NZ | Current year only | No free year-by-year source with a party breakdown. |
 
 Past years are cached on disk permanently; the current year refreshes every 30 minutes. A slow or unreachable IReV never holds up the page: its list of elections is awaited for at most 3 seconds.
 
@@ -260,6 +262,7 @@ Everything is editable in the **Settings** tab; no file editing is needed. Setti
 | `GP_PORT` | Port. Default `4380`; if busy, nearby ports are tried. |
 | `HOST` | `127.0.0.1` (default, this computer only) or `0.0.0.0` (whole network; also set `ADMIN_TOKEN`). |
 | `ADMIN_TOKEN` | Moderator token for remote access. |
+| `ELECTION_API_KEY` | Optional Election.org developer key (free, read-only). Public results work without it. |
 | `AP_API_KEY` | AP Elections API (paid). |
 | `VEC_FEED_URL`, `VEC_CANDIDATES_URL` | VEC live feed, after approval. |
 | `AEC_FEED_HOST`, `ECNZ_FEED_URL` | Australian and NZ commission media feeds. |
@@ -342,6 +345,7 @@ POST /api/polls
 │                                            ├─ democracyclub.js (UK)        │
 │                                            ├─ vec.js        (Victoria)     │
 │                                            ├─ news.js       (RSS + GDELT)  │
+│                                            ├─ electionorg.js (US/UK/AU)    │
 │                                            └─ youtube.js    (live lookup)  │
 │ archive.js — year-by-year results (declared NGA + LA + DC, cached)         │
 │ geo.js — geoBoundaries download/cache · sim.js + model/ — simulation       │
@@ -367,6 +371,7 @@ server/
     democracyclub.js   Democracy Club adapter
     vec.js             Victorian Electoral Commission adapter (live / sample / off)
     news.js            RSS and GDELT
+    electionorg.js     Election.org results (US federal, UK 2024, Australia 2025)
     youtube.js         default broadcaster channels and keyless live-video lookup
     index.js           starts the adapters; lists sources that need keys or access
 public/
@@ -425,8 +430,8 @@ start.bat              Windows launcher, with the restart loop for Settings
 **Limitations:**
 
 - **Nigerian vote counts during an election.** IReV publishes polling-unit sheets as images, so live vote counts need OCR or transcription. Until then, Nigeria shows upload progress live and declared results once INEC announces them.
-- **US coverage.** Only Louisiana has a free official feed. Other states need the AP licence or one adapter per state.
-- **Australia and NZ.** These need feed approval from the VEC and the NZ Electoral Commission. No free historical archive is wired in.
+- **US coverage.** Historical federal results come from Election.org. Live election-night results only come from Louisiana's feed; other states need the AP licence or one adapter per state.
+- **Australia and NZ.** Live results need feed approval from the VEC and the NZ Electoral Commission. For history, only Australia's 2025 federal election is included (via Election.org).
 - **Social media.** X and Reddit are subject to cost and terms decisions; there is no Meta or Nairaland access.
 - **Drilldown geography.** The Drilldown hierarchy below state level is synthetic. Real polling-unit, ward, county and electorate rosters are planned.
 
@@ -447,6 +452,7 @@ start.bat              Windows launcher, with the restart loop for Settings
 - **INEC IReV.** Use is subject to INEC's IReV terms of use.
 - **Nigerian declared results.** Compiled from Wikipedia results tables, which cite INEC; Wikipedia text is licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Each election links to the exact article revision used. Corrections are documented above.
 - **Democracy Club.** CC-BY: credit Democracy Club.
+- **Election.org.** Credited as "Data via Election.org", with each record's link and its original source (FEC, House Clerk, or the national electoral body). Election.org claims no exclusive rights over public-domain facts; source-specific terms still apply.
 - **Louisiana Secretary of State.** Public results data.
 - **Victorian Electoral Commission.** The VEC terms of use apply to the live feed.
 - **geoBoundaries.** Boundaries are CC BY 4.0; Nigeria's come from GRID3.

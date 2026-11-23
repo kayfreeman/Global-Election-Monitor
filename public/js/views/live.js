@@ -123,9 +123,12 @@ export function mount(el, param) {
     if (q) list = list.filter((c) => (c.title + ' ' + c.area + ' ' + c.choices.map((x) => x.name + ' ' + x.party).join(' ')).toLowerCase().includes(q));
     if (!all.length) return emptyState(country) + (arch.notes.length ? `<p class="text-[12px] text-slate-500 mt-2">${esc(arch.notes.join(' '))}</p>` : '');
     const test = all.some((c) => c.test);
-    list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (a.officeLevel || 999) - (b.officeLevel || 999));
+    const LV = { national: 0, state: 1 };
+    list.sort((a, b) => (LV[a.level] ?? 2) - (LV[b.level] ?? 2) || (b.date || '').localeCompare(a.date || '') || (a.officeLevel || 999) - (b.officeLevel || 999));
+    const eo = all.some((c) => c.source === 'electionorg');
     return `${test ? `<div class="rounded border border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-800">${icon('science', 'sm')} <b>TEST DATA</b> — this is the VEC's public sample feed, replayed to prove the parser. Real Victorian results replace it once VEC feed access is approved.</div>` : ''}
       <div class="card p-3 flex items-center gap-3"><span class="msi text-slate-400">search</span><input id="lv-q" value="${esc(q)}" class="flex-1 text-sm" placeholder="Filter contests, places or candidates…"/><span class="font-mono text-[11px] text-slate-500">${list.length} of ${all.length}</span></div>
+      ${eo ? `<p class="text-[12px] text-slate-500">Historical certified results: <a href="https://election.org" target="_blank" rel="noopener" class="text-sky-700">Data via Election.org</a> (original sources: FEC, House Clerk, national electoral bodies). Each card links to its record. Summary cards first; use the filter to find a seat.</p>` : ''}
       <div class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">${list.slice(0, 90).map(card).join('')}</div>`;
   }
   function card(c) {

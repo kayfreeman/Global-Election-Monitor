@@ -6,6 +6,7 @@ const STATUS_TONE = { live: 'green', test: 'amber', error: 'red', blocked: 'slat
 const STATUS_LABEL = { live: 'Live', test: 'Test data', error: 'Error', blocked: 'No access', needs_key: 'Needs key', configured: 'Key set', idle: 'Idle', off: 'Off' };
 const SECRET_HELP = {
   ADMIN_TOKEN: 'Required if you open the dashboard to your network (HOST 0.0.0.0). Moderators enter it in the sidebar.',
+  ELECTION_API_KEY: 'Election.org developer key (free, read-only). Optional — public results work without it; with it, US results use your registered key. Create it at election.org/api/developers and paste it here, never in chat or code.',
   AP_API_KEY: 'AP Elections API (paid). US race calls for every state.',
   X_BEARER_TOKEN: 'X API (pay-per-use, no free tier). Set a spend cap in the X developer console first.',
   REDDIT_CLIENT_ID: 'Reddit app client ID (free tier is non-commercial only).', REDDIT_CLIENT_SECRET: 'Reddit app secret.',

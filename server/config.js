@@ -48,10 +48,10 @@ export function saveConfigPatch(patch) {
 }
 
 // Secrets live in .env (never in config.json, never sent back to the browser in full)
-export const SECRET_KEYS = ['ADMIN_TOKEN', 'AP_API_KEY', 'X_BEARER_TOKEN', 'REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET', 'VEC_FEED_URL', 'VEC_CANDIDATES_URL', 'AEC_FEED_HOST', 'ECNZ_FEED_URL'];
+export const SECRET_KEYS = ['ADMIN_TOKEN', 'ELECTION_API_KEY', 'AP_API_KEY', 'X_BEARER_TOKEN', 'REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET', 'VEC_FEED_URL', 'VEC_CANDIDATES_URL', 'AEC_FEED_HOST', 'ECNZ_FEED_URL'];
 export function writeEnv(patch) {
   const f = path.join(ROOT, '.env');
-  const lines = fs.existsSync(f) ? fs.readFileSync(f, 'utf8').split(/\r?\n/) : [];
+  const lines = fs.existsSync(f) ? fs.readFileSync(f, 'utf8').split(/\r?\n/) : ['# Global Election Monitor: private settings for this computer.', '# Not committed to GitHub (.gitignore lists .env). Never paste these values into chats or code.', ''];
   for (const [k, v] of Object.entries(patch)) {
     if (!SECRET_KEYS.includes(k) && k !== 'GP_PORT' && k !== 'HOST') continue;
     const clean = String(v ?? '').replace(/[\r\n]/g, '').trim();

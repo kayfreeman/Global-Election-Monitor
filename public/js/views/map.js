@@ -65,7 +65,7 @@ export function mount(el, param) {
   // ---------- which boundaries go with the current node ----------
   function geoFor(n) {
     const c = n.country;
-    if (n.level === 0 && isLive() && c === 'GBR') return { adm: 'ADM2', parent: null, filter: null }; // by-elections are council-level
+    if (n.level === 0 && isLive() && c === 'GBR' && !(arch && arch.contests.some((x) => x.level === 'state'))) return { adm: 'ADM2', parent: null, filter: null }; // by-elections are council-level; nation results use ADM1
     if (n.level === 0) return { adm: 'ADM1', parent: null, filter: null };
     if (c === 'NGA' && n.level === 1) return { adm: 'ADM1', parent: null, filter: new Set(data.children.map((x) => norm(x.name))) }; // zone → its states
     if ((c === 'NGA' && n.level === 2) || (c !== 'NGA' && n.level === 1 && n.id !== 'NZL.maori')) return { adm: 'ADM2', parent: n.name, filter: null };
@@ -84,7 +84,8 @@ export function mount(el, param) {
       if (yearFor(cty) !== yReq) return; // a newer year was picked while loading
       const pool = arch ? arch.contests : state.live.contests.filter((x) => x.country === cty);
       const stateName = cty === 'NGA' && data.node.level === 2 ? data.node.name : null;
-      const atLevel = pool.filter((ct) => !ct.level || (stateName ? ct.level === 'lga' && norm(ct.parent) === norm(stateName) : data.node.level <= 1 && ct.level === 'state'));
+      const hasState = pool.some((ct) => ct.level === 'state');
+      const atLevel = pool.filter((ct) => (!ct.level ? !(hasState && data.node.level <= 1) : stateName ? ct.level === 'lga' && norm(ct.parent) === norm(stateName) : data.node.level <= 1 && ct.level === 'state'));
       offices = [...new Set(atLevel.map((ct) => ct.officeType).filter(Boolean))].sort();
       if (!offices.includes(office)) office = offices.includes('PRES') ? 'PRES' : offices[0] || null;
       liveByKey = new Map();
@@ -202,7 +203,7 @@ export function mount(el, param) {
     $('#mp-layers').innerHTML = layers().filter(([k]) => k !== 'irev' || c === 'NGA' || isLive()).map(([k, l]) => `<button data-layer="${k}" class="text-[11.5px] font-mono uppercase tracking-wide px-3 py-1 rounded border ${k === layer ? (k === 'irev' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-green-700 text-white border-green-700') : 'border-slate-300 hover:bg-slate-50'}">${l}</button>`).join('');
     if (isLive()) {
       yearsFor(c).then((ys) => { const b = $('#mp-year'); if (b && !b.contains(document.activeElement)) b.innerHTML = yearSelect(c, ys); });
-      const ON = { PRES: 'Presidential', GOV: 'Governorship' };
+      const ON = { PRES: 'Presidential', GOV: 'Governorship', SEN: 'Senate', HOUSE: 'House', GE: 'General election', HOR: 'House of Reps' };
       $('#mp-office').innerHTML = offices.length > 1 ? `<span class="lbl">Colour by:</span>${offices.map((o) => `<button data-office="${o}" class="text-[11.5px] font-mono uppercase px-2.5 py-1 rounded border ${o === office ? 'bg-sky-700 text-white border-sky-700' : 'border-slate-300 hover:bg-slate-50'}">${ON[o] || o}</button>`).join('')}` : '';
     } else { $('#mp-year').innerHTML = ''; $('#mp-office').innerHTML = ''; }
     $('#mp-crumbs').innerHTML = `${icon('public', 'sm text-sky-700')}` + data.ancestors.concat([{ id: n.id, name: n.name }]).map((a, i, arr) => i === arr.length - 1 ? `<b>${esc(a.name)}</b>` : `<a data-mapto="${esc(a.id)}" class="text-sky-700 cursor-pointer hover:underline">${esc(a.name)}</a><span class="text-slate-300">/</span>`).join('');
@@ -211,7 +212,9 @@ export function mount(el, param) {
     $('#mp-sim').innerHTML = layer === 'irev' || isLive() ? chip('Real data', 'green') : simBadge();
     // join/notes
     let note = '';
-    if (layer === 'irev' && c !== 'NGA') note = liveByKey.size ? `<span class="text-emerald-700">Live: areas with real results from ${esc((state.summary[c]?.live?.source) || 'live sources')} are coloured by the leading/elected party. ${[...liveByKey.keys()].filter((k) => !(geoInfo?.fc?.features || []).some((f) => f.properties.key === k)).length ? 'Some contests have no matching boundary at this level.' : ''}</span>` : `<span class="text-slate-500">No live results with a mappable area for ${esc(d.name)} right now. ${esc(state.summary[c]?.live?.detail || '')}</span>`;
+    const f0 = liveByKey.size ? [...liveByKey.values()][0][0] : null;
+    if (layer === 'irev' && c !== 'NGA' && f0?.electionTitle) note = `<span class="text-emerald-700">${esc(f0.electionTitle)} — areas coloured by the winning party (${f0.source === 'electionorg' ? 'certified results, data via Election.org' : 'official results'}).</span>`;
+    else if (layer === 'irev' && c !== 'NGA') note = liveByKey.size ? `<span class="text-emerald-700">Live: areas with real results from ${esc((state.summary[c]?.live?.source) || 'live sources')} are coloured by the leading/elected party. ${[...liveByKey.keys()].filter((k) => !(geoInfo?.fc?.features || []).some((f) => f.properties.key === k)).length ? 'Some contests have no matching boundary at this level.' : ''}</span>` : `<span class="text-slate-500">No live results with a mappable area for ${esc(d.name)} right now. ${esc(state.summary[c]?.live?.detail || '')}</span>`;
     else if (layer === 'irev' && liveByKey.size) { const f0 = [...liveByKey.values()][0][0]; note = `<span class="text-emerald-700">${esc(f0.declared ? f0.electionTitle.replace(/ — .*$/, '') : 'Results')} — ${data.node.level === 2 ? 'LGAs' : 'states'} coloured by the declared winner (INEC declared results${f0.check === 'single-source' ? ', single source' : ''}).${irev && irev.states && irev.states.size ? ' IReV upload progress shows in the inspector.' : ''}</span>`; }
     else if (layer === 'irev') note = c !== 'NGA' ? '' : irev && irev.lgas ? `<span class="text-emerald-700">Live: LGA polygons coloured by share of polling-unit result sheets uploaded to IReV for <b>${esc(irev.name)}</b>.</span>` : irev && irev.states && irev.states.size ? `<span class="text-emerald-700">Live: states with a tracked IReV election are coloured by upload progress. Double-click one to see its LGAs.</span>` : '<span class="text-slate-500">No tracked IReV election in this area.</span>';
     else if (geoInfo && geoKey && geoInfo.matched < Math.min(items.length, geoInfo.count)) note = `<span class="text-amber-700">${icon('info', 'sm')} ${geoInfo.matched} of ${items.length} ${esc(lvl.toLowerCase())}s joined to real boundaries. Sub-units below state level are synthetic placeholders, so most real boundaries here show without data until real rosters are loaded${n.id === 'NGA.SW.LA' ? ' (Lagos LGAs are real and join)' : ''}.</span>`;
