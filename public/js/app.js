@@ -9,8 +9,10 @@ const NAV_GROUPS = [
   ['Media', [['news', 'News', 'newspaper', 'Election news feeds'], ['wall', 'Streams', 'videocam', 'Multi-camera live stream wall'], ['signals', 'Signals', 'forum', 'Social and crowd signals']]],
   ['Integrity', [['ledger', 'Ledger', 'gavel', 'Tamper-evident audit ledger']]],
 ];
+// One colour per menu tab (all pass WCAG AA with white text when the tab is selected)
+const NAV_COLOR = { command: '#0369a1', live: '#15803d', map: '#4f46e5', drilldown: '#0f766e', news: '#b45309', wall: '#b91c1c', signals: '#a21caf', ledger: '#374151', settings: '#64748b' };
 const ROUTES = NAV_GROUPS.flatMap(([, r]) => r).concat([['settings', 'Settings', 'settings', 'Settings & integrations']]);
-const CLOCKS = [['UTC', 'UTC'], ['WDC', 'America/New_York'], ['LON', 'Europe/London'], ['ABJ', 'Africa/Lagos'], ['MEL', 'Australia/Melbourne'], ['WLG', 'Pacific/Auckland']];
+const CLOCKS = [['UTC', 'UTC'], ['MEL', 'Australia/Melbourne'], ['OTT', 'America/Toronto'], ['ABJ', 'Africa/Lagos'], ['LON', 'Europe/London'], ['WDC', 'America/New_York']];
 const ADAPTER_TONE = { live: 'text-green-600', test: 'text-amber-600', ready: 'text-sky-600', configured: 'text-sky-600', needs_key: 'text-amber-600', blocked: 'text-slate-400', error: 'text-red-600', idle: 'text-slate-400', off: 'text-slate-400' };
 const ADAPTER_LABEL = { live: 'LIVE', test: 'TEST DATA', ready: 'READY', configured: 'KEY SET', needs_key: 'NEEDS KEY', blocked: 'NO ACCESS', error: 'ERROR', idle: 'IDLE', off: 'OFF' };
 
@@ -39,7 +41,7 @@ function shell() {
     </div>
     <footer id="foot" class="shrink-0 h-9 bg-white border-t border-slate-200 px-3 flex items-center gap-4 text-[10.5px] font-mono overflow-x-auto scroll-thin whitespace-nowrap"></footer>
   </div>`;
-  const tab = ([k, label, ic, tip]) => `<a href="#/${k}" data-nav="${k}" title="${tip}" aria-label="${label}">${icon(ic, 'sm')}<span class="nav-lbl">${label}</span></a>`;
+  const tab = ([k, label, ic, tip]) => `<a href="#/${k}" data-nav="${k}" title="${tip}" aria-label="${label}" style="--c:${NAV_COLOR[k] || '#0369a1'}">${icon(ic, 'sm')}<span class="nav-lbl">${label}</span></a>`;
   document.getElementById('nav').innerHTML =
     `<div id="navtabs" class="flex-1 min-w-0 flex items-center gap-0.5 overflow-x-auto no-scrollbar">` +
     NAV_GROUPS.map(([g, r], i) => `${i ? '<span class="shrink-0 w-px h-5 bg-slate-200 mx-1.5"></span>' : ''}<span class="lbl shrink-0 mr-1 hidden 2xl:inline text-[9.5px]">${g}</span>${r.map(tab).join('')}`).join('') +
@@ -92,7 +94,8 @@ function renderNav() {
   const name = (location.hash.match(/^#\/(\w+)/) || [])[1] || 'command';
   document.querySelectorAll('[data-nav]').forEach((a) => {
     const on = a.dataset.nav === name;
-    a.className = `navtab shrink-0 px-2.5 h-8 inline-flex items-center gap-1.5 rounded text-[13px] whitespace-nowrap ${on ? 'on bg-sky-700 text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`;
+    a.className = `navtab shrink-0 px-2.5 h-8 inline-flex items-center gap-1.5 rounded text-[13px] whitespace-nowrap ${on ? 'on font-semibold' : ''}`;
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     if (on) a.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   });
 }
