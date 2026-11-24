@@ -3,7 +3,7 @@
 // data/geo/, and serves them per country/level. ADM2 features get a
 // `parent` (their ADM1 name) by centroid-in-polygon so the map can show
 // only the counties/LGAs inside the state you drill into.
-//   Licences: USA Census (public domain), NGA GRID3 (CC BY 4.0), AUS/NZL
+//   Licences: USA Census (public domain), NGA GRID3 (CC BY 4.0), AUS/CAN
 //   (CC BY 4.0), GBR ONS (OGL v3). Attribution is returned with every file.
 import fs from 'node:fs';
 import path from 'node:path';

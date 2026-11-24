@@ -1,7 +1,7 @@
 {
   "name": "global-polls",
   "version": "0.3.0",
-  "description": "Global Electoral Pulse — live election dashboard for the US, Australia, Nigeria, UK and New Zealand",
+  "description": "Global Electoral Pulse — live election dashboard for Australia, Canada, Nigeria, the UK and the US",
   "type": "module",
   "private": true,
   "engines": { "node": ">=18" },

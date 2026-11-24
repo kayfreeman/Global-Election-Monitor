@@ -173,6 +173,7 @@ async function boot() {
   shell();
   renderClocks(); setInterval(renderClocks, 1000); setInterval(renderConn, 2000);
   state.meta = await api.get('/api/meta');
+  if (!state.meta.order.includes(state.country)) setCountry(state.meta.order.includes('NGA') ? 'NGA' : state.meta.order[0]); // a country no longer covered (e.g. New Zealand) was saved
   state.reports = await api.get('/api/reports').catch(() => []);
   connect();
   const heavy = throttle(() => { renderTicker(); renderSide(); renderFoot(); }, 1500);

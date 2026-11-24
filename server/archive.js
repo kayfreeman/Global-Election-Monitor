@@ -6,15 +6,19 @@
 //         list of IReV elections held that year.
 //   USA — Louisiana Secretary of State, every election date in the year.
 //   GBR — Democracy Club results, every Thursday in the year (UK polling day).
-//   AUS / NZL — no free year-by-year feed; only live/test data.
+//   AUS — Election.org (2025 federal); otherwise live/test data only.
+//   CAN — Elections Canada official results, general elections 2006–2025.
 // Past years are cached on disk for good; the current year refreshes.
 import fs from 'node:fs';
 import path from 'node:path';
+import { canadaGeneral, CAN_GE } from './live/canada.js';
+import { fixUkContests } from './live/electionorg.js';
 import { fileURLToPath } from 'node:url';
 import { get, getJson } from './live/http.js';
-import { parseLouisiana } from './live/louisiana.js';
+import { parseLouisiana, laSignificant, laLabel } from './live/louisiana.js';
 import { parseCsv, groupResults } from './live/democracyclub.js';
 import { electionOrgContests, EO_YEARS } from './live/electionorg.js';
+import { createMedsl, MEDSL_FIRST_YEAR } from './live/medsl.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const slug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -59,6 +63,8 @@ export function declaredToContests(r) {
 export function createArchive(dataDir, hub) {
   const dir = path.join(dataDir, 'archive'); fs.mkdirSync(dir, { recursive: true });
   let declared = loadDeclared(dataDir);
+  const medsl = createMedsl(dataDir);
+  const usFederal = (y) => y >= MEDSL_FIRST_YEAR && y <= 2024 && y % 2 === 0; // US general elections with nationwide returns
   const mem = new Map();
   const cacheFile = (k) => path.join(dir, `${k}.json`);
   async function cached(key, year, fn) {
@@ -66,10 +72,23 @@ export function createArchive(dataDir, hub) {
     const m = mem.get(key); if (m && Date.now() - m.at < ttl) return m.data;
     const f = cacheFile(key);
     if (fs.existsSync(f)) { const st = fs.statSync(f); if (Date.now() - st.mtimeMs < ttl) { const data = JSON.parse(fs.readFileSync(f, 'utf8')); mem.set(key, { at: st.mtimeMs, data }); return data; } }
-    const data = await fn();
+    let data;
+    try { data = await fn(); } catch (e) {
+      // The source refused or failed: fall back to the newest saved copy of the same data from an earlier version of
+      // this cache (e.g. eo3-GBR-2024 for eo5-GBR-2024), if one exists and isn't empty. The caller adds a note.
+      const m2 = key.match(/^([a-z]+(?:-[a-z]+)?)\d*-(.+)$/i); const dir = path.dirname(f);
+      if (m2) {
+        const re = new RegExp(`^${m2[1]}\\d*-${m2[2].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.json$`);
+        const prev = fs.readdirSync(dir).filter((n) => re.test(n)).map((n) => ({ n, st: fs.statSync(path.join(dir, n)) })).filter((x) => x.st.size > 2).sort((a, b) => b.st.mtimeMs - a.st.mtimeMs)[0];
+        if (prev) { const old = JSON.parse(fs.readFileSync(path.join(dir, prev.n), 'utf8')); staleNotes.set(key, `${e.message} — showing the copy saved on ${new Date(prev.st.mtimeMs).toISOString().slice(0, 10)}; it refreshes automatically once the source answers again.`); return old; }
+      }
+      throw e;
+    }
+    staleNotes.delete(key);
     try { fs.writeFileSync(f, JSON.stringify(data)); } catch { /* cache is optional */ }
     mem.set(key, { at: Date.now(), data }); return data;
   }
+  const staleNotes = new Map(); // cache key → note when an older saved copy was used
 
   // Louisiana: list of all election dates (shared cache)
   const LA = 'https://voterportal.sos.la.gov/ElectionResults/ElectionResults/Data?blob=';
@@ -80,14 +99,14 @@ export function createArchive(dataDir, hub) {
     mem.set('la-dates', { at: Date.now(), data }); return data;
   }
   async function usa(year) {
-    return cached(`usa-la-${year}`, year, async () => {
+    return cached(`usa-la2-${year}`, year, async () => {
       const dates = (await laDates()).filter((e) => yearOf(e.ElectionDate) === year);
       const out = [];
       for (const e of dates) {
         const [m, d, y] = e.ElectionDate.split('/'); const key = `${y}${m}${d}`;
         try {
           const races = await getJson(`${LA}${key}/RacesCandidates_Multiparish.htm`, { gapMs: 800 }); const votes = await getJson(`${LA}${key}/Votes_Multiparish.htm`, { gapMs: 800 });
-          out.push(...parseLouisiana(e.ElectionDate, races, votes, e.ResultsOfficial === '1').sort((a, b) => a.officeLevel - b.officeLevel).slice(0, 60));
+          out.push(...parseLouisiana(e.ElectionDate, races, votes, e.ResultsOfficial === '1').filter(laSignificant).map(laLabel).sort((a, b) => a.officeLevel - b.officeLevel).slice(0, 60));
         } catch (err) { out.push({ error: `${e.ElectionDate}: ${err.message}` }); }
       }
       return out;
@@ -132,6 +151,15 @@ export function createArchive(dataDir, hub) {
   }
   return {
     reload() { declared = loadDeclared(dataDir); },
+    /** The year each country should open on: its latest year with full official results. */
+    defaultYears() {
+      const out = {}; const now = nowYear();
+      for (const c of ['AUS', 'CAN', 'NGA', 'GBR', 'USA']) {
+        const ys = [...(EO_YEARS[c] || []), ...(c === 'CAN' ? Object.keys(CAN_GE).map(Number) : []), ...(c === 'NGA' ? declared.map((r) => r.year) : [])].filter((y) => y <= now);
+        out[c] = ys.length ? Math.max(...ys) : now;
+      }
+      return out;
+    },
     addDeclared(rec) {
       const f = path.join(dataDir, 'declared-user.json'); let cur = []; try { cur = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* new file */ }
       cur = cur.filter((x) => !(x.type === rec.type && x.year === rec.year && (x.state || null) === (rec.state || null))); cur.push(rec);
@@ -141,11 +169,16 @@ export function createArchive(dataDir, hub) {
       const ys = new Map(); const add = (y, what) => { if (!y) return; if (!ys.has(y)) ys.set(y, new Set()); ys.get(y).add(what); };
       for (const c of hub.contestList(country)) add(yearOf(c.date), 'live');
       if (country === 'NGA') { for (const r of declared) add(r.year, r.type === 'PRES' ? 'Presidential' : 'Governorship'); for (const e of await irevQuick()) add(e.year, 'IReV'); }
-      if (country === 'USA') { try { for (const e of await Promise.race([laDates(), new Promise((_, j) => setTimeout(() => j(new Error('slow')), 5000))])) add(yearOf(e.ElectionDate), 'Louisiana'); } catch { /* offline or slow: retry next time */ } }
+      if (country === 'USA') { try { for (const e of await Promise.race([laDates(), new Promise((_, j) => setTimeout(() => j(new Error('slow')), 5000))])) { const y = yearOf(e.ElectionDate); if (y >= 2016) add(y, EO_YEARS.USA.includes(y) ? 'Louisiana' : 'Louisiana only'); } } catch { /* offline or slow: retry next time */ } }
+      if (country === 'CAN') for (const y of Object.keys(CAN_GE)) add(+y, 'General election');
       if (country === 'GBR') for (let y = 2016; y <= nowYear(); y++) add(y, 'Democracy Club');
       for (const y of EO_YEARS[country] || []) add(y, 'Election.org');
+      if (country === 'USA') for (let y = MEDSL_FIRST_YEAR; y <= 2024; y += 2) { if (y % 4 === 0) add(y, 'President'); add(y, 'Senate'); add(y, 'House'); }
       add(nowYear(), 'current');
-      return [...ys.entries()].sort((a, b) => b[0] - a[0]).map(([year, s]) => ({ year, sources: [...s].filter((x) => x !== 'current') }));
+      const usLabel = (s) => { const fed = ['President', 'Senate', 'House'].filter((x) => s.has(x)); const la = s.has('Louisiana') || s.has('Louisiana only');
+        if (fed.length) return { label: `${fed.join(' · ')} (nationwide)`, short: fed.map((x) => x[0]).join('·') }; // e.g. "P·S·H"
+        if (la) return { label: 'Louisiana state races only', short: 'LA only' }; return { label: '', short: '' }; };
+      return [...ys.entries()].sort((a, b) => b[0] - a[0]).map(([year, s]) => ({ year, sources: [...s].filter((x) => x !== 'current'), ...(country === 'USA' ? usLabel(s) : country === 'CAN' ? (s.has('General election') ? { label: 'Federal general election', short: 'GE' } : { label: '', short: '' }) : {}) }));
     },
     async contests(country, year) {
       const live = hub.contestList(country).filter((c) => yearOf(c.date) === year);
@@ -155,13 +188,30 @@ export function createArchive(dataDir, hub) {
         irev = (await irevQuick()).filter((e) => e.year === year);
         if (!extra.length) notes.push(`No declared results loaded for ${year}.`);
       }
-      if (country === 'USA') { try { extra = await usa(year); } catch (e) { notes.push(`Louisiana: ${e.message}`); } notes.push('USA: Louisiana is the only state with a free results feed here; other states need the AP licence.'); }
+      if (country === 'USA') {
+        try { extra = await usa(year); } catch (e) { notes.push(`Louisiana: ${e.message}`); }
+        if (usFederal(year)) { // MEDSL fills the years/offices Election.org doesn't cover
+          const eo = EO_YEARS.USA.includes(year);
+          try { const m = await cached(`medsl5-${year}`, year, async () => { const r = await medsl.contests(year, { president: year !== 2024, senate: !eo, house: !eo }); if (r.errors.length && !r.contests.length) throw new Error(r.errors.join('; ')); return r.contests; }); extra = [...m, ...extra]; }
+          catch (e) { notes.push(`MIT Election Lab data: ${e.message}`); }
+        }
+        const offices = `${year % 4 === 0 ? 'President (by state), ' : ''}Senate and House`;
+        notes.push(usFederal(year)
+          ? `Nationwide ${year}: ${offices}. Sources: ${EO_YEARS.USA.includes(year) ? `Election.org (certified FEC / House Clerk) for Senate and House${year === 2024 ? ' and President' : ', MIT Election Data and Science Lab for President'}` : 'MIT Election Data and Science Lab (Harvard Dataverse, CC0)'}. Louisiana's own state results are listed separately.`
+          : year % 2 === 0 && year > 2024
+            ? `Nationwide U.S. results for ${year} aren't available from a free source yet (certified federal results are published the following year). Shown: Louisiana only — the one state with a free official results feed.`
+            : `${year} had no nationwide federal general election. Shown: Louisiana's state elections.`);
+      }
+      if (country === 'CAN') {
+        if (CAN_GE[year]) { try { extra = await cached(`can3-${year}`, year, () => canadaGeneral(year)); notes.push(`${year} federal general election: every electoral district, with seat totals by party and province. Source: Elections Canada, Official Voting Results (Open Government Licence – Canada).`); } catch (e) { notes.push(e.message); } }
+        else notes.push(`No federal general election was held in ${year}. General elections with official results: ${Object.keys(CAN_GE).join(', ')}.`);
+      }
       if (country === 'GBR') { try { extra = await gbr(year); } catch (e) { notes.push(`Democracy Club: ${e.message}`); } }
       if (EO_YEARS[country]?.includes(year)) {
-        try { extra = [...(await cached(`eo3-${country}-${year}`, year, () => electionOrgContests(country, year))), ...extra]; }
+        try { extra = [...((c0) => (country === 'GBR' ? fixUkContests(c0) : c0))(await cached(`eo5-${country}-${year}`, year, () => electionOrgContests(country, year))), ...extra];  if (staleNotes.has(`eo5-${country}-${year}`)) notes.push(`Election.org: ${staleNotes.get(`eo5-${country}-${year}`)}`); }
         catch (e) { notes.push(`Election.org: ${e.message}`); }
       }
-      if (country === 'NZL' || (country === 'AUS' && !EO_YEARS.AUS.includes(year))) notes.push('No free year-by-year results feed is available for this country and year.');
+      if (country === 'AUS' && !EO_YEARS.AUS.includes(year)) notes.push('No free year-by-year results feed is available for this country and year.');
       const errs = extra.filter((c) => c.error).map((c) => c.error); extra = extra.filter((c) => !c.error);
       if (errs.length) notes.push(`${errs.length} fetch error(s): ${errs.slice(0, 3).join('; ')}`);
       const seen = new Set(extra.map((c) => c.id));

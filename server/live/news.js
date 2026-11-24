@@ -1,3 +1,4 @@
+import { byCountryName, COUNTRIES } from '../model/countries.js';
 // News: publisher RSS/Atom feeds + GDELT DOC 2.0 (free, keyless global news
 // index). Stores headline, link, source and a short snippet only — readers
 // click through to the publisher. Check each publisher's RSS terms before
@@ -5,7 +6,7 @@
 import { get, getJson } from './http.js';
 
 // Verified 22 Nov 2026. guardian.ng and thecable.ng feeds are behind Cloudflare bot checks (not usable).
-export const DEFAULT_FEEDS = [
+const DEFAULT_FEEDS_RAW = [
   { id: 'premiumtimes', country: 'NGA', name: 'Premium Times', url: 'https://www.premiumtimesng.com/feed', filter: true },
   { id: 'channels', country: 'NGA', name: 'Channels TV', url: 'https://www.channelstv.com/feed/', filter: true },
   { id: 'vanguard', country: 'NGA', name: 'Vanguard', url: 'https://www.vanguardngr.com/feed/', filter: true },
@@ -15,15 +16,18 @@ export const DEFAULT_FEEDS = [
   { id: 'guardian-au', country: 'AUS', name: 'Guardian Australia — politics', url: 'https://www.theguardian.com/australia-news/australian-politics/rss' },
   { id: 'bbc-pol', country: 'GBR', name: 'BBC News — politics', url: 'https://feeds.bbci.co.uk/news/politics/rss.xml', terms: 'BBC: personal, non-commercial use' },
   { id: 'guardian-uk', country: 'GBR', name: 'Guardian — politics', url: 'https://www.theguardian.com/politics/rss' },
-  { id: 'rnz-pol', country: 'NZL', name: 'RNZ — politics', url: 'https://www.rnz.co.nz/rss/political.xml', terms: 'RNZ: personal use only' },
+  { id: 'cbc-pol', country: 'CAN', name: 'CBC News — politics', url: 'https://www.cbc.ca/webfeed/rss/rss-politics', terms: 'CBC: personal, non-commercial use' },
+  { id: 'global-ca', country: 'CAN', name: 'Global News — politics', url: 'https://globalnews.ca/politics/feed/' },
 ];
+// Alphabetical by country name (Australia, Canada, Nigeria, United Kingdom, United States), then by name
+export const DEFAULT_FEEDS = [...DEFAULT_FEEDS_RAW].sort((a, b) => byCountryName(a.country, b.country) || String(a.name || a.label).localeCompare(String(b.name || b.label)));
 // GDELT queries per country (English-language coverage from that country's media)
 export const GDELT = {
   NGA: '(election OR INEC OR "polling unit" OR governorship) sourcecountry:nigeria',
   USA: '(election OR runoff OR "vote count" OR midterm) sourcecountry:unitedstates',
   AUS: '("Victorian election" OR VEC OR "state election") sourcecountry:australia',
   GBR: '(election OR "by-election" OR polling) sourcecountry:unitedkingdom',
-  NZL: '(election OR "special votes" OR "Electoral Commission") sourcecountry:newzealand',
+  CAN: '(election OR "by-election" OR "Elections Canada" OR riding) sourcecountry:canada',
 };
 const KEYWORDS = /elect|inec|poll|vote|ballot|campaign|primar|candidate|governor|senat|assembly|parliament|party|apc|pdp|labour|tinubu|obi|atiku|vec|runoff|by-election|referend/i;
 
@@ -53,7 +57,7 @@ export function parseGdelt(j, country) {
 export function startNews(hub, cfg = {}) {
   let gdeltPausedUntil = 0; let gdeltStart = 0;
   const opt = { enabled: true, everyMin: 10, gdelt: true, ...cfg };
-  opt.feeds = (Array.isArray(cfg.feeds) && cfg.feeds.length ? cfg.feeds : DEFAULT_FEEDS).filter((f) => f.enabled !== false && f.url);
+  opt.feeds = (Array.isArray(cfg.feeds) && cfg.feeds.length ? cfg.feeds : DEFAULT_FEEDS).filter((f) => f.enabled !== false && f.url && (!f.country || f.country === '*' || COUNTRIES[f.country]));
   const queries = Object.entries({ ...GDELT, ...(cfg.gdeltQueries || {}) }).filter(([, q]) => q && q.trim());
   hub.source({ id: 'news', name: 'News feeds (RSS)', country: '*', kind: 'news', docs: '', note: `${opt.feeds.length} publisher feeds. Headlines + links only.`, terms: 'Check each publisher\'s RSS terms before commercial use.' });
   hub.source({ id: 'gdelt', name: 'GDELT news index', country: '*', kind: 'news', docs: 'https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/', note: 'Free, keyless global news search (15-minute updates).' });

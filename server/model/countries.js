@@ -66,33 +66,36 @@ export const COUNTRIES = {
       { code: 'LAB', name: 'Labour', color: '#dc2626', w: 0.24 },
       { code: 'REF', name: 'Reform UK', color: '#0891b2', w: 0.27 },
       { code: 'CON', name: 'Conservative', color: '#2563eb', w: 0.18 },
-      { code: 'LD', name: 'Liberal Democrats', color: '#f59e0b', w: 0.13 },
+      { code: 'LD', name: 'Liberal Democrats', color: '#f97316', w: 0.13 },
       { code: 'GRN', name: 'Green', color: '#16a34a', w: 0.11 },
-      { code: 'SNP', name: 'SNP / Plaid / Other', color: '#a3a3a3', w: 0.07 },
+      { code: 'SNP', name: 'SNP', color: '#facc15', w: 0.07 },
     ],
   },
-  NZL: {
-    code: 'NZL', iso2: 'NZ', name: 'New Zealand', authority: 'Electoral Commission NZ', authorityShort: 'ECNZ',
-    tz: 'Pacific/Auckland', clock: 'WLG', accent: '#0e7490',
+  CAN: {
+    code: 'CAN', iso2: 'CA', name: 'Canada', authority: 'Elections Canada', authorityShort: 'EC',
+    tz: 'America/Toronto', clock: 'OTT', accent: '#b91c1c',
     election: {
-      name: '2026 General Election', date: '2026-11-07', phase: 'special votes count',
-      note: 'Held 7 Nov 2026. Official results (incl. special votes) declared 27 Nov 2026; writ returned 3 Dec.',
+      name: 'Between federal elections', date: null, phase: 'between elections',
+      note: 'Last general election: 28 Apr 2025 (45th). Next fixed date is in Oct 2029 unless Parliament is dissolved earlier. By-elections are published by Elections Canada as they happen.',
     },
-    levels: ['Country', 'Region', 'Electorate', 'Voting Place'],
-    unitWord: 'voting places', metricWord: 'Counted',
+    levels: ['Country', 'Province / Territory', 'Electoral District', 'Polling Station'],
+    unitWord: 'polling stations', metricWord: 'Reporting',
     parties: [
-      { code: 'NAT', name: 'National', color: '#2563eb', w: 0.31 },
-      { code: 'LAB', name: 'Labour', color: '#dc2626', w: 0.31 },
-      { code: 'GRN', name: 'Green', color: '#16a34a', w: 0.11 },
-      { code: 'ACT', name: 'ACT', color: '#eab308', w: 0.09 },
-      { code: 'NZF', name: 'NZ First', color: '#334155', w: 0.09 },
-      { code: 'TPM', name: 'Te Pāti Māori', color: '#9f1239', w: 0.05 },
-      { code: 'OTH', name: 'Other', color: '#94a3b8', w: 0.04 },
+      { code: 'LPC', name: 'Liberal', color: '#dc2626', w: 0.42 },
+      { code: 'CPC', name: 'Conservative', color: '#1d4ed8', w: 0.40 },
+      { code: 'BQ', name: 'Bloc Québécois', color: '#0ea5e9', w: 0.06 },
+      { code: 'NDP', name: 'NDP', color: '#f97316', w: 0.07 },
+      { code: 'GPC', name: 'Green', color: '#16a34a', w: 0.02 },
+      { code: 'PPC', name: "People's Party", color: '#6d28d9', w: 0.01 },
+      { code: 'IND', name: 'Independent', color: '#64748b', w: 0.01 },
+      { code: 'OTH', name: 'Other', color: '#94a3b8', w: 0.01 },
     ],
   },
 };
 
-export const COUNTRY_ORDER = ['USA', 'AUS', 'NGA', 'GBR', 'NZL'];
+// Alphabetical by country name: Australia, Canada, Nigeria, United Kingdom, United States.
+export const COUNTRY_ORDER = ['AUS', 'CAN', 'NGA', 'GBR', 'USA'];
+export const byCountryName = (a, b) => (COUNTRY_ORDER.indexOf(a) + 1 || 99) - (COUNTRY_ORDER.indexOf(b) + 1 || 99); // '*' (all countries) sorts last
 
 // ---------- Real top-level geography ----------
 export const US_STATES = [
@@ -130,6 +133,7 @@ export const UK_NATIONS = [
   ['NIR', 'Northern Ireland', ['Northern Ireland']],
 ];
 
-export const NZ_REGIONS = ['Northland','Auckland','Waikato','Bay of Plenty','Gisborne',"Hawke's Bay",'Taranaki',
-  'Manawatū-Whanganui','Wellington','Tasman','Nelson','Marlborough','West Coast','Canterbury','Otago','Southland'];
-export const NZ_MAORI = ['Te Tai Tokerau','Tāmaki Makaurau','Hauraki-Waikato','Waiariki','Ikaroa-Rāwhiti','Te Tai Hauāuru','Te Tai Tonga'];
+export const CA_PROVINCES = [['NL','Newfoundland and Labrador'],['PE','Prince Edward Island'],['NS','Nova Scotia'],['NB','New Brunswick'],
+  ['QC','Quebec'],['ON','Ontario'],['MB','Manitoba'],['SK','Saskatchewan'],['AB','Alberta'],['BC','British Columbia'],
+  ['YT','Yukon'],['NT','Northwest Territories'],['NU','Nunavut']];
+

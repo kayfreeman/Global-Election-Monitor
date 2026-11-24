@@ -9,7 +9,7 @@ const INCIDENTS = {
   USA: ['Tabulator paper jam', 'Electronic poll book sync delay', 'Provisional ballot backlog', 'Drop-box chain-of-custody query', 'Request to extend polling hours'],
   AUS: ['Early voting centre queue overflow', 'Declaration vote batch recheck', 'Voting centre short of ballot papers', 'Two-candidate-preferred recount request'],
   GBR: ['Ballot box late to count', 'Bundle check requested by agent', 'Postal vote verification backlog', 'Polling station opened late'],
-  NZL: ['Special vote batch transit delay', 'Voting place staffing shortfall', 'Ballot box seal query at scrutiny'],
+  CAN: ['Advance poll ballot box transfer delay', 'Special ballot count query', 'Polling station opened late', 'Judicial recount requested'],
 };
 const POSTS = [
   { t: 'Queue at {p} moving slowly — roughly 40 minutes to get through.', topic: 'Queues & wait times', s: 'tension' },

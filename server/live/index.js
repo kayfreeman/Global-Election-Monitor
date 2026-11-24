@@ -7,9 +7,9 @@ import { startVec } from './vec.js';
 import { startNews } from './news.js';
 
 const PENDING = [
-  { id: 'ecnz', name: 'NZ Electoral Commission', country: 'NZL', kind: 'results', status: 'blocked', docs: 'https://www.electionresults.govt.nz', note: 'electionresults.govt.nz is behind a Cloudflare bot check, so it cannot be scraped. Request the media results feed: media@elections.govt.nz. Official results 27 Nov 2026.' },
   { id: 'ap', name: 'AP Elections API', country: 'USA', kind: 'results', status: process.env.AP_API_KEY ? 'configured' : 'needs_key', docs: 'https://developer.ap.org/ap-elections-api/', note: 'Paid licence. Only national US source with race calls for every state.' },
   { id: 'us-states', name: 'Other US state portals', country: 'USA', kind: 'results', status: 'blocked', docs: '', note: 'Each state runs its own system; several (e.g. Kentucky) use bot protection. Add states one by one where a public JSON exists.' },
+  { id: 'elections-canada', name: 'Elections Canada', country: 'CAN', kind: 'results', status: 'idle', docs: 'https://www.elections.ca/content.aspx?section=res&document=index&lang=e', note: 'Official results for general elections 2006–2025 load from the Election year list. Election-night results (enr.elections.ca) are only published during an election; none is scheduled.' },
   { id: 'aec', name: 'AEC Media Feed (federal)', country: 'AUS', kind: 'results', status: 'idle', docs: 'https://aec.gov.au/media/mediafeed', note: 'Federal elections only — none scheduled. Free registration via mediafeed@aec.gov.au.' },
   { id: 'x', name: 'X API', country: '*', kind: 'social', status: process.env.X_BEARER_TOKEN ? 'configured' : 'needs_key', docs: 'https://docs.x.com/x-api', note: 'Pay-per-use only — no free tier.' },
   { id: 'reddit', name: 'Reddit Data API', country: '*', kind: 'social', status: process.env.REDDIT_CLIENT_ID ? 'configured' : 'needs_key', docs: 'https://www.reddit.com/wiki/api', note: 'Free for approved non-commercial use only.' },

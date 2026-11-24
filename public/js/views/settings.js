@@ -6,14 +6,13 @@ const STATUS_TONE = { live: 'green', test: 'amber', error: 'red', blocked: 'slat
 const STATUS_LABEL = { live: 'Live', test: 'Test data', error: 'Error', blocked: 'No access', needs_key: 'Needs key', configured: 'Key set', idle: 'Idle', off: 'Off' };
 const SECRET_HELP = {
   ADMIN_TOKEN: 'Required if you open the dashboard to your network (HOST 0.0.0.0). Moderators enter it in the sidebar.',
+  DATAVERSE_API_TOKEN: 'Harvard Dataverse API token (free account). Lets the server download MIT\'s full U.S. House 1976–2024 file, which sits behind a guestbook form. Create or recreate it at dataverse.harvard.edu → your name → API Token, and paste it only here.',
   ELECTION_API_KEY: 'Election.org developer key (free, read-only). Optional — public results work without it; with it, US results use your registered key. Create it at election.org/api/developers and paste it here, never in chat or code.',
   AP_API_KEY: 'AP Elections API (paid). US race calls for every state.',
   X_BEARER_TOKEN: 'X API (pay-per-use, no free tier). Set a spend cap in the X developer console first.',
   REDDIT_CLIENT_ID: 'Reddit app client ID (free tier is non-commercial only).', REDDIT_CLIENT_SECRET: 'Reddit app secret.',
   VEC_FEED_URL: 'Victorian Electoral Commission live feed URL — issued after your VEC terms-of-use agreement is approved.',
   VEC_CANDIDATES_URL: 'VEC candidates file URL (from the VEC user guide).',
-  AEC_FEED_HOST: 'AEC media feed host (federal elections only; free registration).',
-  ECNZ_FEED_URL: 'NZ Electoral Commission media feed URL (request via media@elections.govt.nz).',
 };
 
 export function mount(el) {

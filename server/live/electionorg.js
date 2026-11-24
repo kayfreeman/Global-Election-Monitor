@@ -30,9 +30,9 @@ async function pages(url) { // follow limit/offset until every record is read
 const usParty = (p) => (/^(D|DEM|Democrat)/i.test(p || '') ? 'DEM' : /^(R|REP|Republican)/i.test(p || '') ? 'GOP' : 'OTH');
 const gbParty = (a, n) => { // match the abbreviation first: "Social Democratic and Labour Party" (SDLP) is not Labour
   const ab = String(a || '').trim();
-  if (/^Lab(\b| Co-op)/i.test(ab)) return 'LAB'; if (/^Con$/i.test(ab)) return 'CON'; if (/^LD$/i.test(ab)) return 'LD'; if (/^(RUK|Reform)/i.test(ab)) return 'REF'; if (/^(Green|Grn)/i.test(ab)) return 'GRN'; if (/^(SNP|PC)$/i.test(ab)) return 'SNP';
+  if (/^Lab(\b| Co-op)/i.test(ab)) return 'LAB'; if (/^Con$/i.test(ab)) return 'CON'; if (/^LD$/i.test(ab)) return 'LD'; if (/^(RUK|Reform)/i.test(ab)) return 'REF'; if (/^(Green|Grn)/i.test(ab)) return 'GRN'; if (/^SNP$/i.test(ab)) return 'SNP'; if (/^(PC|Plaid)/i.test(ab)) return 'PC';
   if (ab) return ab.toUpperCase();
-  const nm = String(n || ''); return /^Labour/i.test(nm) ? 'LAB' : /^Conservative/i.test(nm) ? 'CON' : /^Liberal Democrat/i.test(nm) ? 'LD' : /^Reform/i.test(nm) ? 'REF' : /^Green/i.test(nm) ? 'GRN' : /^(Scottish National|Plaid)/i.test(nm) ? 'SNP' : 'OTH';
+  const nm = String(n || ''); return /^Labour/i.test(nm) ? 'LAB' : /^Conservative/i.test(nm) ? 'CON' : /^Liberal Democrat/i.test(nm) ? 'LD' : /^Reform/i.test(nm) ? 'REF' : /^Green/i.test(nm) ? 'GRN' : /^Scottish National/i.test(nm) ? 'SNP' : /^Plaid/i.test(nm) ? 'PC' : 'OTH';
 };
 const auParty = (a, n) => { // abbreviation first: e.g. the Liberal Democrats (LDP) are not the Liberal Party
   const ab = String(a || '').trim().toUpperCase();
@@ -46,7 +46,7 @@ function base(country, year, office, officeType, date, electionId, electionTitle
 // display names for the dashboard's grouped party codes (individual small parties keep their own name)
 const GROUP = {
   USA: { DEM: 'Democratic', GOP: 'Republican' },
-  GBR: { LAB: 'Labour', CON: 'Conservative', LD: 'Liberal Democrats', REF: 'Reform UK', GRN: 'Green', SNP: 'SNP / Plaid Cymru' },
+  GBR: { LAB: 'Labour', CON: 'Conservative', LD: 'Liberal Democrats', REF: 'Reform UK', GRN: 'Green', SNP: 'SNP', PC: 'Plaid Cymru' },
   AUS: { ALP: 'Labor', LNP: 'Liberal–National Coalition', GRN: 'Greens', ONP: "Pauline Hanson's One Nation" },
 };
 // national (or state) roll-up of many seat contests: votes and seats (US: races won) by party
@@ -58,7 +58,7 @@ function rollup(contests, common, id, title, area, level) {
     for (const x of c.choices) { const k = names[x.partyCode] ? x.partyCode : `${x.partyCode}:${x.party || 'Other'}`; const e = by.get(k) || { party: names[x.partyCode] || x.party || x.partyCode, partyCode: x.partyCode, votes: 0, seats: 0 }; e.votes += x.votes; if (x === w) e.seats++; by.set(k, e); }
   }
   const choices = [...by.values()].sort((a, b) => b.seats - a.seats || b.votes - a.votes).slice(0, 12)
-    .map((e, i) => ({ name: `${e.party} — ${e.seats} ${e.seats === 1 ? unit[0] : unit[1]}`, party: e.party, partyCode: e.partyCode, votes: e.votes, seats: e.seats, elected: i === 0 && e.seats > 0 ? true : null }));
+    .map((e, i) => ({ name: `${e.party} — ${e.seats} ${e.seats === 1 ? unit[0] : unit[1]}`, party: e.party, partyCode: e.partyCode, votes: e.votes, seats: e.seats, elected: null })); // a party total is not a declared winner
   return { ...common, id, title, area, level, parent: null, choices };
 }
 
@@ -73,6 +73,9 @@ async function usa(year) {
     const c = { ...common, id: `USA-EO-${r.id}`, title: r.label, area: sen ? r.state_name : r.label, level: sen ? 'state' : 'district', parent: r.state_name, choices, url: `https://election.org${r.path}`, ballots: r.totals?.final_votes || null };
     out.push(c); seat[sen ? 'S' : 'H'].push(c);
   }
+  // House delegation per state (majority colours the map), as for the MEDSL years
+  const byState = new Map(); for (const c of seat.H) { if (!byState.has(c.parent)) byState.set(c.parent, []); byState.get(c.parent).push(c); }
+  for (const [st, list] of byState) { const r = rollup(list, base('USA', year, 'U.S. House', 'HOUSE', date, `USA-EO-${year}-H`, `${year} U.S. House elections`), `USA-EO-${year}-H-${st}`, `${year} U.S. House · ${st} delegation`, st, 'state'); if (r.choices[0] && (!r.choices[1] || r.choices[0].seats > r.choices[1].seats)) r.choices[0].elected = true; out.push(r); }
   for (const [k, list] of Object.entries(seat)) if (list.length) out.push(rollup(list, base('USA', year, k === 'S' ? 'U.S. Senate' : 'U.S. House', k === 'S' ? 'SEN' : 'HOUSE', date, `USA-EO-${year}-${k}`, `${year} U.S. ${k === 'S' ? 'Senate' : 'House'} elections`), `USA-EO-${year}-${k}`, `${year} U.S. ${k === 'S' ? 'Senate' : 'House'} — races won and votes by party (incl. special elections${k === 'H' ? ' and non-voting delegates' : ''})`, 'United States', 'national'));
   if (year === 2024) out.push(...await usPresident2024());
   return out;
@@ -120,4 +123,15 @@ async function aus(year) {
 export async function electionOrgContests(country, year) {
   if (!(EO_YEARS[country] || []).includes(year)) return [];
   return country === 'USA' ? usa(year) : country === 'GBR' ? gbr(year) : country === 'AUS' ? aus(year) : [];
+}
+
+// Rebuild UK national/nation roll-ups from the constituencies; used on saved copies made before Plaid Cymru (PC)
+// was separated from the SNP.
+export function fixUkContests(list) {
+  const seats = list.filter((c) => c.level === 'constituency'); if (!seats.length) return list;
+  for (const c of seats) for (const x of c.choices) if (x.partyCode === 'SNP' && /^(PC|Plaid)/i.test(String(x.party || ''))) x.partyCode = 'PC';
+  const nat = list.find((c) => c.level === 'national'); if (!nat) return list;
+  const common = { ...nat }; const title = String(nat.title).replace(/ — seats and votes by party$/, '');
+  const nations = [...new Set(seats.map((c) => c.parent).filter(Boolean))];
+  return [rollup(seats, common, nat.id, nat.title, 'United Kingdom', 'national'), ...nations.map((n) => rollup(seats.filter((c) => c.parent === n), common, `${nat.id}-${n}`, `${title} · ${n}`, n, 'state')), ...seats];
 }

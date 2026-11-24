@@ -14,6 +14,7 @@ import { LiveHub } from './live/hub.js';
 import { startLive } from './live/index.js';
 import { DEFAULT_FEEDS, GDELT } from './live/news.js';
 import { createGeo } from './geo.js';
+import { createDistricts } from './districts.js';
 import { createArchive } from './archive.js';
 import { DEFAULT_STREAMS, resolveLive, channelBase } from './live/youtube.js';
 
@@ -30,14 +31,16 @@ const store = new Store();
 const ledger = new Ledger(path.join(DATA, 'ledger.jsonl'));
 const reports = new JsonStore(path.join(DATA, 'reports.json'), []);
 const polls = new JsonStore(path.join(DATA, 'polls.json'), seedPolls());
+polls.items = polls.items.filter((x) => COUNTRIES[x.country]); // drop countries no longer covered (New Zealand)
 const hub = new LiveHub(DATA);
 const geo = createGeo(DATA);
+const districts = createDistricts(DATA);
 const archive = createArchive(DATA, hub);
 const geoReported = new Set();
 const sim = new Simulation(store, ledger, cfg.sim);
 sim.speed = cfg.sim.speed;
 // Empty slots (old default) → preload real broadcasters' free YouTube live channels
-let streams = Array.isArray(cfg.streams) && cfg.streams.some((s) => s.url) ? cfg.streams : DEFAULT_STREAMS;
+let streams = (Array.isArray(cfg.streams) && cfg.streams.some((s) => s.url) ? cfg.streams : DEFAULT_STREAMS).filter((s) => !s.country || s.country === '*' || COUNTRIES[s.country]);
 
 // ---------------- SSE ----------------
 const clients = new Set();
@@ -161,7 +164,7 @@ async function api(req, res, url) {
     req.on('close', () => { clearInterval(hb); clients.delete(res); });
     return;
   }
-  if (p === '/api/meta') return json(res, 200, { mode: cfg.mode, map: cfg.map, countries: COUNTRIES, order: COUNTRY_ORDER, sim: { speed: sim.speed, tickMs: sim.tickMs }, admin: isAdmin(req), supervised: process.env.GP_SUPERVISED === '1', version: '0.4.0' });
+  if (p === '/api/meta') return json(res, 200, { mode: cfg.mode, map: cfg.map, countries: Object.fromEntries(COUNTRY_ORDER.map((c) => [c, COUNTRIES[c]])), order: COUNTRY_ORDER, sim: { speed: sim.speed, tickMs: sim.tickMs }, admin: isAdmin(req), supervised: process.env.GP_SUPERVISED === '1', defaultYears: archive.defaultYears(), version: '0.5.0' });
   if (p === '/api/ping') return json(res, 200, { serverTs: Date.now() });
   if (p === '/api/summary') return json(res, 200, summary());
   if (p === '/api/adapters' || p === '/api/live/sources') return json(res, 200, hub.sourceList());
@@ -195,8 +198,13 @@ async function api(req, res, url) {
     json(res, 200, { ok: true }); hub.dirty = true; hub.persist(); console.log('  Restarting to apply settings…');
     setTimeout(() => process.exit(3), 300); return;
   }
+  // ---- electoral-district boundaries (official map services, cached in data/geo) ----
+  if ((mm0 = p.match(/^\/api\/districts\/(AUS|CAN|GBR|USA)\/(\d{4})$/))) {
+    try { const d = await districts.get(mm0[1], +mm0[2], qs.get('parent') || ''); return json(res, 200, d || { type: 'FeatureCollection', features: [], none: true }); }
+    catch (e) { return json(res, 502, { error: e.message }); }
+  }
   // ---- map boundaries (geoBoundaries, cached in data/geo) ----
-  if ((mm0 = p.match(/^\/api\/geo\/(USA|NGA|AUS|GBR|NZL)\/(ADM1|ADM2)$/))) {
+  if ((mm0 = p.match(/^\/api\/geo\/(AUS|CAN|NGA|GBR|USA)\/(ADM1|ADM2)$/))) {
     try {
       const d = await geo.get(mm0[1], mm0[2], qs.get('parent') || null);
       if (mm0[2] === 'ADM1' && !geoReported.has(mm0[1])) {
@@ -309,7 +317,7 @@ async function api(req, res, url) {
   // ---- streams ----
   // ---- year-by-year archive ----
   if (p === '/api/years') { const c = COUNTRIES[qs.get('country')] ? qs.get('country') : null; if (!c) return json(res, 400, { error: 'country required' }); return json(res, 200, await archive.years(c)); }
-  if ((mm = p.match(/^\/api\/archive\/(USA|NGA|AUS|GBR|NZL)\/(\d{4})$/))) return json(res, 200, await archive.contests(mm[1], +mm[2]));
+  if ((mm = p.match(/^\/api\/archive\/(AUS|CAN|NGA|GBR|USA)\/(\d{4})$/))) return json(res, 200, await archive.contests(mm[1], +mm[2]));
   if (p === '/api/declared' && m === 'POST') { // moderators: add an INEC declared result (e.g. a new governorship election)
     if (!isAdmin(req)) return json(res, 403, { error: 'admin access required' });
     const b = await readBody(req, 256 * 1024);

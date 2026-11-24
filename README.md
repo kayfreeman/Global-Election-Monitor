@@ -1,6 +1,6 @@
 # Global Election Monitor — "Global Electoral Pulse"
 
-A self-hosted, real-time election monitoring dashboard for **Nigeria, the United States, the United Kingdom, Australia and New Zealand**.
+A self-hosted, real-time election monitoring dashboard for **Australia, Canada, Nigeria, the United Kingdom and the United States**.
 
 It brings together:
 - official results feeds, and INEC declared results going back to 2011;
@@ -97,24 +97,25 @@ Navigation is grouped into **Results** (Overview, Live Results, Map, Drilldown),
 
 | Country | Source | What you get | Access |
 |---|---|---|---|
-| 🇳🇬 Nigeria | **INEC IReV** (public endpoints used by inecelectionresults.ng) | <ul><li>Every presidential and governorship election on IReV (2020–2026).</li><li>Upload progress.</li><li>The real list of LGAs, wards and polling units.</li><li>A link to each polling unit's EC8A result-sheet **image**.</li></ul> | Free. INEC's IReV terms of use apply. IReV publishes **images, not vote numbers**. |
-| 🇳🇬 Nigeria | **INEC declared results** (bundled dataset) | Presidential results 2011–2023 by state; governorship results 2019–2026 by LGA where published. | Bundled; see [below](#nigeria-declared-results-dataset). |
-| 🇺🇸 USA | **Louisiana Secretary of State** results JSON | Statewide and multi-parish races for every Louisiana election date: votes, precincts reporting and winners. Includes the 12 Dec 2026 runoffs. | Free, public. |
-| 🇬🇧 UK | **Democracy Club** CSV export | Declared first-past-the-post contests (council by-elections, Police and Crime Commissioners and others) by date. | Free, CC-BY: credit Democracy Club. |
 | 🇦🇺 Australia | **Victorian Electoral Commission** results feed (XML) | Victorian state election (28 Nov 2026): first preferences, two-candidate-preferred counts and voting centres returned. | Free, but needs a signed **VEC terms-of-use agreement**. **Off** by default. A public *sample* replay is available in Settings for checking the screens; it is labelled TEST DATA. |
 | 🇦🇺 Australia | AEC media feed | Federal elections only. | Free registration (mediafeed@aec.gov.au). No federal election is scheduled. |
-| 🇳🇿 New Zealand | Electoral Commission | — | electionresults.govt.nz is behind a bot check. Request media-feed access from media@elections.govt.nz. |
-| 🇺🇸 🇬🇧 🇦🇺 | **[Election.org](https://election.org/data/api) public data API** | <ul><li>Official certified **US House and Senate** results for 2020, 2022 and 2024, published by the FEC and the House Clerk.</li><li>The **2024 US presidential election** by state, compiled by the FEC.</li><li>The **UK 2024 general election**: all 650 constituencies and every candidate.</li><li>The **Australia 2025 federal election**: all 150 divisions, first preferences and two-candidate-preferred counts.</li></ul> | Free and read-only. Works without a key; an optional `ELECTION_API_KEY` (in `.env` only) is used for US results. Credit: "Data via Election.org". |
+| 🇨🇦 Canada | **Elections Canada** Official Voting Results (Table 12 CSV) | Every candidate in every electoral district for the general elections of 2006, 2008, 2011, 2015, 2019, 2021 and 2025, with seat totals by party for Canada and for each province and territory. | Free, Open Government Licence – Canada. Election-night results (enr.elections.ca) appear only during an election and are not wired in yet. |
+| 🇳🇬 Nigeria | **INEC IReV** (public endpoints used by inecelectionresults.ng) | <ul><li>Every presidential and governorship election on IReV (2020–2026).</li><li>Upload progress.</li><li>The real list of LGAs, wards and polling units.</li><li>A link to each polling unit's EC8A result-sheet **image**.</li></ul> | Free. INEC's IReV terms of use apply. IReV publishes **images, not vote numbers**. |
+| 🇳🇬 Nigeria | **INEC declared results** (bundled dataset) | Presidential results 2011–2023 by state; governorship results 2019–2026 by LGA where published. | Bundled; see [below](#nigeria-declared-results-dataset). |
+| 🇬🇧 UK | **Democracy Club** CSV export | Declared first-past-the-post contests (council by-elections, Police and Crime Commissioners and others) by date. | Free, CC-BY: credit Democracy Club. |
+| 🇺🇸 USA | **Louisiana Secretary of State** results JSON | Statewide and multi-parish races for every Louisiana election date: votes, precincts reporting and winners. Includes the 12 Dec 2026 runoffs. | Free, public. |
+| 🇺🇸 USA (all states) | **[MIT Election Data and Science Lab](https://electionlab.mit.edu/data) (MEDSL)** — Harvard Dataverse and GitHub | <ul><li>**President** by state, 1976–2020, with the national popular vote and states carried.</li><li>**Senate** races, 1976–2018, including special elections.</li><li>**House** districts, 1976–2018, with the state delegations and the national seat count.</li></ul> | Free, CC0. Files are downloaded once to `data/medsl/` and refreshed every 30 days. The 1976–2024 House file needs a Dataverse guestbook form; download it yourself to `data/medsl/1976-2024-house.csv` and it is used instead. |
 | 🇺🇸 USA (all states) | AP Elections API | Race calls for every state. | **Paid** licence (`AP_API_KEY`). |
+| 🇦🇺 🇬🇧 🇺🇸 | **[Election.org](https://election.org/data/api) public data API** | <ul><li>Official certified **US House and Senate** results for 2020, 2022 and 2024, published by the FEC and the House Clerk.</li><li>The **2024 US presidential election** by state, compiled by the FEC.</li><li>The **UK 2024 general election**: all 650 constituencies and every candidate.</li><li>The **Australia 2025 federal election**: all 150 divisions, first preferences and two-candidate-preferred counts.</li></ul> | Free and read-only. Works without a key; an optional `ELECTION_API_KEY` (in `.env` only) is used for US results. Credit: "Data via Election.org". |
 
 ### News
 
 | Source | Notes |
 |---|---|
-| **Publisher RSS** (10 by default) | Premium Times, Channels TV, Vanguard (NGA); NPR and Politico (USA); ABC News Australia and the Guardian Australia (AUS); BBC Politics and the Guardian UK politics feed (GBR); RNZ Politics (NZL). Add, edit or disable feeds in Settings. General feeds are filtered to election topics. |
+| **Publisher RSS** (11 by default) | ABC News Australia and the Guardian Australia (AUS); CBC News Politics and Global News Politics (CAN); Premium Times, Channels TV, Vanguard (NGA); BBC Politics and the Guardian UK politics feed (GBR); NPR and Politico (USA). Add, edit or disable feeds in Settings. General feeds are filtered to election topics. |
 | **GDELT DOC 2.0** | A free, keyless global news search with one query per country. It rate-limits shared connections, so the dashboard queries the countries in rotation and pauses for 30 minutes if GDELT returns "429 Too Many Requests". |
 
-Only headlines and links are stored. Check each publisher's RSS terms before any public or commercial use; BBC and RNZ allow personal, non-commercial use.
+Only headlines and links are stored. Check each publisher's RSS terms before any public or commercial use; BBC and CBC allow personal, non-commercial use.
 
 ### Social and crowd sources
 
@@ -136,11 +137,13 @@ Pick an **Election year** in the sidebar, on the Overview, on Live Results or on
 
 | Country | Years available | How |
 |---|---|---|
-| Nigeria | 2011, 2015, 2019–2026 | Bundled INEC declared results, plus IReV's list of elections for each year. |
-| USA | 2020, 2022 and 2024 nationwide, plus every year on the Louisiana SoS calendar | Election.org: House and Senate in all three years, presidential by state in 2024. The Louisiana SoS covers its own elections. Each year is fetched the first time it is opened, then cached in `data/archive/`. |
-| UK | 2016 to now; 2024 general election | Democracy Club results for every Thursday (UK polling day) of the year; the first load of a past year takes about a minute, then it is cached. Election.org adds the 2024 general election, with the map coloured by nation. |
 | Australia | 2025 | Election.org: the 2025 federal election, with the map coloured by state. |
-| NZ | Current year only | No free year-by-year source with a party breakdown. |
+| Canada | 2006, 2008, 2011, 2015, 2019, 2021, 2025 | Elections Canada official results, one file per general election, cached after the first load. The seat totals were checked against Elections Canada's published results for every year. The map colours each province by the party with the most seats; ridings are listed under Live Results with a province picker (riding boundaries are not drawn yet). |
+| Nigeria | 2011, 2015, 2019–2026 | Bundled INEC declared results, plus IReV's list of elections for each year. |
+| UK | 2016 to now; 2024 general election | Democracy Club results for every Thursday (UK polling day) of the year; the first load of a past year takes about a minute, then it is cached. Election.org adds the 2024 general election, with the map coloured by nation. |
+| USA | Every even year 1976–2024 nationwide (President, Senate, House), plus every year on the Louisiana SoS calendar | MEDSL for 1976–2018 (and the President for 2020); Election.org for House and Senate 2020–2024 and the 2024 President. The year list says what each year holds: **P·S·H** = President, Senate and House nationwide; **LA only** = Louisiana's own state races. On Live Results each office has its own tab (President / Senate / House / Louisiana only), and the House tab has a state picker. Nationwide 2026 results are not yet available free (certified federal results are published the following year), so 2026 shows Louisiana only. |
+
+**US data checks.** The House seat totals for every year 1976–2018 were reconciled with the House Clerk's party divisions. Where the MEDSL file had a party-label error (mostly Pennsylvania cross-filers such as Bud Shuster, listed only on the Democratic line), the card shows the corrected party and says so. Races a state left off the ballot because the candidate was unopposed (Florida, Louisiana, Oklahoma) are shown with a note. NC-9 in 2018 is shown without a winner because it was never certified. Known gap: the source has only one North Carolina Senate race for 1986, marked as a special election.
 
 Past years are cached on disk permanently; the current year refreshes every 30 minutes. A slow or unreachable IReV never holds up the page: its list of elections is awaited for at most 3 seconds.
 
@@ -192,6 +195,16 @@ Within each election, candidates beyond the top six are combined into "Others", 
 ## Maps
 
 - **Boundaries:** [geoBoundaries](https://www.geoboundaries.org) simplified boundaries at ADM1 (state/region) and ADM2 (LGA/county) level. They are downloaded on first use and cached in `data/geo/`. Nigerian boundaries come from GRID3 via geoBoundaries (CC BY 4.0).
+- **Electoral districts (drill-down):** double-click a state, province or nation to see its districts, each coloured by its winner; click one for every candidate's votes. The shapes are downloaded once from official open map services and cached in `data/geo/`:
+
+  | Country | Districts | Boundary source | Years drawn |
+  |---|---|---|---|
+  | Australia | 150 divisions | Australian Bureau of Statistics, ASGS 2025 (CC BY 4.0) | 2025 |
+  | Canada | 343 ridings (2023 order) / 338 (2013 order) | Elections Canada / Statistics Canada via Open North's Represent API (Open Government Licence – Canada) | 2025; 2015, 2019, 2021. The first download takes about 6 minutes (the service allows one shape a second). 2006–2011 ridings are listed but not drawn. |
+  | United Kingdom | 650 constituencies | Office for National Statistics, July 2024 (OGL v3) | 2024 |
+  | United States | 435 House districts | US Census Bureau TIGERweb (public domain) | 2024 and 2018 exactly; 2012–2022 with the nearest available map and a note where states redrew lines; before 2012 the map shows counties and the districts are listed under Live Results |
+
+  Every district in Australia 2025, the UK 2024 and the US states tested joined to its result by name or number.
 - **Basemaps:** all keyless:
   - **Esri Light Gray** (the default);
   - Esri Streets;
@@ -213,11 +226,11 @@ The wall comes pre-loaded with broadcasters' free live channels on YouTube:
 
 | Country | Channels |
 |---|---|
-| NGA | Channels Television, TVC News |
-| USA | NBC News NOW, LiveNOW from FOX |
-| GBR | Sky News, GB News |
 | AUS | ABC News Australia, 9News Australia |
-| NZL | 1News (TVNZ) |
+| CAN | CBC News, CTV News, Global News, CPAC |
+| NGA | Channels Television, TVC News |
+| GBR | Sky News, GB News |
+| USA | NBC News NOW, LiveNOW from FOX |
 
 **How it works:**
 
@@ -238,7 +251,7 @@ Everything is editable in the **Settings** tab; no file editing is needed. Setti
 | Data mode | **Live** (default) or **Simulation**. Applies instantly. |
 | Results sources | <ul><li>Turn IReV, Louisiana, Democracy Club and VEC on or off.</li><li>IReV: elections to track, refresh intervals and request spacing.</li><li>Louisiana: election dates. Democracy Club: how many days back.</li><li>VEC: off, live or sample mode.</li></ul> |
 | News feeds | Add, edit, disable or delete RSS feeds; per-country GDELT queries; refresh interval. Each feed shows its status. |
-| API keys | AP, X, Reddit, the VEC, AEC and ECNZ feed URLs, and `ADMIN_TOKEN`. Saved to `.env`; values are masked after saving. |
+| API keys | Election.org, Harvard Dataverse, AP, X, Reddit, the VEC feed URLs, and `ADMIN_TOKEN`. Saved to `.env`; values are masked after saving. |
 | Map | Basemap choice or a custom tile URL and attribution. |
 | Polls | Remove the demo polls; add real polls with a source link. |
 | Declared results (Nigeria) | Add an election's declared result. |
@@ -257,6 +270,8 @@ Everything is editable in the **Settings** tab; no file editing is needed. Setti
 
 ### Environment variables (`.env`)
 
+Every key and token the dashboard uses is read from `.env`; none is written into the code. When the server starts it adds an empty `NAME=` line for any setting your `.env` is missing, with a one-line explanation above it, and it never changes a line that already has a value. Fill in only what you have, then restart.
+
 | Variable | Use |
 |---|---|
 | `GP_PORT` | Port. Default `4380`; if busy, nearby ports are tried. |
@@ -265,7 +280,7 @@ Everything is editable in the **Settings** tab; no file editing is needed. Setti
 | `ELECTION_API_KEY` | Optional Election.org developer key (free, read-only). Public results work without it. |
 | `AP_API_KEY` | AP Elections API (paid). |
 | `VEC_FEED_URL`, `VEC_CANDIDATES_URL` | VEC live feed, after approval. |
-| `AEC_FEED_HOST`, `ECNZ_FEED_URL` | Australian and NZ commission media feeds. |
+| `DATAVERSE_API_TOKEN` | Optional Harvard Dataverse token: downloads MIT's full U.S. House 1976–2024 file. |
 | `X_BEARER_TOKEN`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` | Social sources. |
 | `OPEN_BROWSER=1` | Open the browser on start (set by `start.bat`). |
 | `GP_SUPERVISED=1` | Lets Settings restart the server (set by `start.bat`). |
@@ -281,11 +296,11 @@ Hierarchies used by the Drilldown and simulation:
 
 | Country | Levels |
 |---|---|
-| USA | Country › State › County › Precinct |
 | Australia | Country › State/Territory › Division › Voting Centre |
+| Canada | Country › Province/Territory › Electoral District › Polling Station |
 | Nigeria | Country › Geopolitical Zone › State › LGA › Ward › Polling Unit |
 | UK | Country › Nation › Region › Constituency › Ward |
-| NZ | Country › Region › Electorate › Voting Place |
+| USA | Country › State › County › Precinct |
 
 ---
 

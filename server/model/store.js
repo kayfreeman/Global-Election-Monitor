@@ -2,7 +2,7 @@
 //   Country -> level 1 -> ... -> leaf (polling unit / precinct / voting place)
 // Leaves hold votes; every ancestor holds running aggregates, updated by
 // delta-propagation whenever a leaf changes. Each node records provenance.
-import { COUNTRIES, COUNTRY_ORDER, US_STATES, NG_ZONES, LAGOS_LGAS, AU_STATES, UK_NATIONS, NZ_REGIONS, NZ_MAORI } from './countries.js';
+import { COUNTRIES, COUNTRY_ORDER, US_STATES, NG_ZONES, LAGOS_LGAS, AU_STATES, CA_PROVINCES, UK_NATIONS } from './countries.js';
 
 export function rng(seed) { // mulberry32
   let a = seed >>> 0;
@@ -88,6 +88,12 @@ export class Store {
         const s = this.add(country, `AUS.${sc}`, sn, sc, 1, root, false); this.finishNode(def, s, root, r, false, 0.25);
         grow(s, { ...counts, 2: sc === 'VIC' ? [12, 12] : sc === 'NSW' ? [8, 8] : [2, 5] });
       }
+    } else if (country === 'CAN') {
+      for (const [pc, pn] of CA_PROVINCES) {
+        const s = this.add(country, `CAN.${pc}`, pn, pc, 1, root, false); this.finishNode(def, s, root, r, false, 0.3);
+        if (pc === 'QC') s.lean.BQ *= 4; else s.lean.BQ *= 0.02;
+        grow(s, { 2: pc === 'ON' ? [10, 10] : pc === 'QC' ? [8, 8] : ['YT', 'NT', 'NU'].includes(pc) ? [1, 1] : [2, 5], 3: [3, 6] });
+      }
     } else if (country === 'GBR') {
       const counts = { 3: [3, 6], 4: [3, 5] };
       for (const [nc, nn, regions] of UK_NATIONS) {
@@ -98,18 +104,6 @@ export class Store {
           this.finishNode(def, reg, nat, r, false, 0.2); grow(reg, counts);
         });
       }
-    } else if (country === 'NZL') {
-      const counts = { 2: [1, 4], 3: [4, 8] };
-      for (const rn of NZ_REGIONS) {
-        const reg = this.add(country, `NZL.${slug(rn)}`, rn, slug(rn).slice(0, 3).toUpperCase(), 1, root, false);
-        this.finishNode(def, reg, root, r, false, 0.2); grow(reg, counts);
-      }
-      const m = this.add(country, 'NZL.maori', 'Māori Electorates', 'MAO', 1, root, false);
-      this.finishNode(def, m, root, r, false, 0.2); m.lean.TPM *= 5; m.lean.LAB *= 1.4; m.lean.NAT *= 0.6; m.lean.ACT *= 0.4;
-      NZ_MAORI.forEach((en) => {
-        const e = this.add(country, `NZL.maori.${slug(en)}`, en, slug(en).slice(0, 4).toUpperCase(), 2, m, false);
-        this.finishNode(def, e, m, r, false, 0.25); grow(e, counts);
-      });
     }
     // aggregate static totals bottom-up
     const agg = (id) => {
@@ -127,9 +121,9 @@ export class Store {
     n.lean = Object.fromEntries(def.parties.map((p) => [p.code, parent.lean[p.code] * l[p.code]]));
     if (!isLeaf) return;
     n.leaf = true; n.leafCount = 1; n.status = 'pending';
-    const scale = { USA: [900, 4200], NGA: [350, 1500], AUS: [1200, 5200], GBR: [2500, 9000], NZL: [800, 3600] }[def.code];
+    const scale = { USA: [900, 4200], CAN: [900, 3500], NGA: [350, 1500], AUS: [1200, 5200], GBR: [2500, 9000] }[def.code];
     n.registered = ri(r, scale[0], scale[1]);
-    n.turnoutTarget = { USA: 0.52, NGA: 0.29, AUS: 0.88, GBR: 0.58, NZL: 0.77 }[def.code] * (0.82 + r() * 0.36);
+    n.turnoutTarget = { USA: 0.52, CAN: 0.67, NGA: 0.29, AUS: 0.88, GBR: 0.58 }[def.code] * (0.82 + r() * 0.36);
     const raw = def.parties.map((p) => p.w * n.lean[p.code]);
     const sum = raw.reduce((a, b) => a + b, 0);
     n.shares = Object.fromEntries(def.parties.map((p, i) => [p.code, raw[i] / sum]));

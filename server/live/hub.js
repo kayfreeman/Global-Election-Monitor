@@ -1,3 +1,4 @@
+import { byCountryName } from '../model/countries.js';
 // LiveHub: holds everything that comes from real sources (contests, IReV
 // trackers, news) plus an honest status record per source.
 import { EventEmitter } from 'node:events';
@@ -82,5 +83,5 @@ export class LiveHub extends EventEmitter {
   // compact views for the API / SSE
   contestList(country) { return [...this.contests.values()].filter((c) => !country || c.country === country).map(({ _sig, ...c }) => c); }
   irevSummary() { return [...this.irev.values()].map(({ lgas, ...t }) => ({ ...t, lgaCount: lgas.length })); }
-  sourceList() { return [...this.sources.values()]; }
+  sourceList() { return [...this.sources.values()].sort((a, b) => byCountryName(a.country, b.country) || String(a.name).localeCompare(String(b.name))); }
 }

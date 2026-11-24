@@ -6,7 +6,7 @@ import { state, api, esc, fmt, pct, chip, icon, def, bar, party, ago, setCountry
 const STATUS_TONE = { live: 'green', test: 'amber', error: 'red', blocked: 'slate', needs_key: 'amber', configured: 'blue', idle: 'slate', off: 'slate' };
 
 export function mount(el, param) {
-  let country = (param || '').split('/')[0] || state.country; let q = ''; let disposed = false;
+  let country = (param || '').split('/')[0] || state.country; let q = ''; let disposed = false; let office = ''; let stateSel = '';
   let irevSel = null; let irevData = null; let lgaSel = null; let wardData = null;
   let arch = null; let archErr = null; let elecSel = null; let years = [];
 
@@ -122,14 +122,34 @@ export function mount(el, param) {
     let list = all.slice();
     if (q) list = list.filter((c) => (c.title + ' ' + c.area + ' ' + c.choices.map((x) => x.name + ' ' + x.party).join(' ')).toLowerCase().includes(q));
     if (!all.length) return emptyState(country) + (arch.notes.length ? `<p class="text-[12px] text-slate-500 mt-2">${esc(arch.notes.join(' '))}</p>` : '');
+    // Office segments: President / Senate / House / Governor… (nationwide), plus single-state feeds such as Louisiana
+    const OFF = { PRES: 'President', SEN: 'Senate', HOUSE: 'House', GOV: 'Governor' };
+    const segOf = (c) => (c.stateFeed ? 'STATEFEED' : OFF[c.officeType] ? c.officeType : 'OTHER');
+    const segs = [...new Set(all.map(segOf))].sort((a, b) => ['PRES', 'SEN', 'HOUSE', 'GOV', 'OTHER', 'STATEFEED'].indexOf(a) - ['PRES', 'SEN', 'HOUSE', 'GOV', 'OTHER', 'STATEFEED'].indexOf(b));
+    const segLabel = (k) => (k === 'STATEFEED' ? `${all.find((c) => c.stateFeed)?.area || 'State'} only` : k === 'OTHER' ? 'Other' : OFF[k]);
+    const useSegs = segs.length > 1;
+    if (useSegs && !segs.includes(office)) office = segs[0];
+    if (useSegs) list = list.filter((c) => segOf(c) === office);
+    const dists = list.filter((c) => c.level === 'district' && c.parent); const statesInSeg = dists.length >= 30 ? [...new Set(dists.map((c) => c.parent))].sort() : []; // House seats, Canadian ridings, UK constituencies…
+    if (!statesInSeg.includes(stateSel)) stateSel = '';
+    if (stateSel) list = list.filter((c) => c.level === 'national' || c.parent === stateSel || c.area === stateSel);
+    const segBar = useSegs || statesInSeg.length ? `<div class="flex flex-wrap items-center gap-2">${!useSegs ? '' : segs.map((k) => `<button data-office="${k}" class="px-3 py-1.5 rounded border text-[12.5px] ${k === office ? 'bg-sky-700 text-white border-sky-700' : 'border-slate-300 hover:bg-slate-50'}">${esc(segLabel(k))} <span class="opacity-70 font-mono text-[11px]">${all.filter((c) => segOf(c) === k).length}</span></button>`).join('')}
+      ${statesInSeg.length ? `<select id="lv-state" class="text-[13px] py-1 ml-auto"><option value="">${country === 'CAN' ? 'All provinces and territories' : country === 'GBR' ? 'All nations' : country === 'AUS' ? 'All states and territories' : 'All states'}</option>${statesInSeg.map((x) => `<option ${x === stateSel ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}</div>` : '';
     const test = all.some((c) => c.test);
     const LV = { national: 0, state: 1 };
     list.sort((a, b) => (LV[a.level] ?? 2) - (LV[b.level] ?? 2) || (b.date || '').localeCompare(a.date || '') || (a.officeLevel || 999) - (b.officeLevel || 999));
     const eo = all.some((c) => c.source === 'electionorg');
     return `${test ? `<div class="rounded border border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-800">${icon('science', 'sm')} <b>TEST DATA</b> — this is the VEC's public sample feed, replayed to prove the parser. Real Victorian results replace it once VEC feed access is approved.</div>` : ''}
+      ${segBar}
       <div class="card p-3 flex items-center gap-3"><span class="msi text-slate-400">search</span><input id="lv-q" value="${esc(q)}" class="flex-1 text-sm" placeholder="Filter contests, places or candidates…"/><span class="font-mono text-[11px] text-slate-500">${list.length} of ${all.length}</span></div>
       ${eo ? `<p class="text-[12px] text-slate-500">Historical certified results: <a href="https://election.org" target="_blank" rel="noopener" class="text-sky-700">Data via Election.org</a> (original sources: FEC, House Clerk, national electoral bodies). Each card links to its record. Summary cards first; use the filter to find a seat.</p>` : ''}
-      <div class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">${list.slice(0, 90).map(card).join('')}</div>`;
+      ${arch.notes.length ? `<div class="rounded border border-sky-200 bg-sky-50 p-3 text-[13px] text-sky-900">${arch.notes.map(esc).join('<br>')}</div>` : ''}
+      ${(() => { // nationwide results first, then single-state feeds (e.g. Louisiana) under their own heading
+        const nat = list.filter((c) => !c.stateFeed); const st = list.filter((c) => c.stateFeed);
+        const grid = (xs) => `<div class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">${xs.slice(0, stateSel || q ? 500 : 120).map(card).join('')}</div>${xs.length > (stateSel || q ? 500 : 120) ? `<p class="text-[12px] text-slate-500">Showing the first ${stateSel || q ? 500 : 120} of ${xs.length} — pick a state or use the filter to narrow.</p>` : ''}`;
+        return (nat.length ? (st.length ? `<h3 class="font-bold text-[15px] pt-1">Nationwide</h3>` : '') + grid(nat) : '')
+          + (st.length ? `<h3 class="font-bold text-[15px] pt-2">${esc(st[0].area)} only <span class="font-normal text-[12.5px] text-slate-500">— state results from the ${esc(st[0].area)} Secretary of State</span></h3>` + grid(st) : '');
+      })()}`;
   }
   function card(c) {
     const tot = c.choices.reduce((a, x) => a + x.votes, 0); const rp = c.reportingTotal ? c.reportingDone / c.reportingTotal : 0;
@@ -141,6 +161,7 @@ export function mount(el, param) {
         <div><div class="flex items-center gap-2 text-[13px]"><span class="w-2 h-2 rounded-sm" style="background:${col}"></span><span class="truncate flex-1 ${x.elected ? 'font-semibold' : ''}">${esc(x.name)} <span class="text-slate-500 text-[11.5px]">${esc(x.party || '')}</span></span>${x.elected ? `<span class="text-green-700 text-[11px] font-mono">✓ ${c.declared ? 'DECLARED WINNER' : 'ELECTED'}</span>` : ''}<span class="num">${fmt(x.votes)}</span><span class="num text-[11.5px] text-slate-500 w-12 text-right">${tot ? pct(x.votes / tot) : '—'}</span></div>
         <div class="mt-0.5">${bar(tot ? x.votes / tot : 0, col, 'h-1')}</div></div>`; }).join('')}
         ${c.choices.length > 6 ? `<div class="text-[11px] text-slate-400">+${c.choices.length - 6} more</div>` : ''}</div>
+      ${c.note || c.choices.some((x) => x.note) ? `<div class="mt-2 text-[11.5px] text-amber-800 bg-amber-50 rounded px-2 py-1">${esc([c.note, ...c.choices.filter((x) => x.note).map((x) => `${x.name}: ${x.note}`)].filter(Boolean).join(' · '))}</div>` : ''}
       ${c.twoCP && c.twoCP.length ? `<div class="mt-2 pt-2 border-t border-slate-100 text-[12px]"><span class="lbl">Two-candidate preferred</span> ${c.twoCP.map((x) => `<span class="ml-2">${esc(x.name)} <b class="num">${fmt(x.votes)}</b></span>`).join('')}</div>` : ''}
       <div class="flex items-center justify-between mt-2 text-[11px] font-mono text-slate-500"><span>${c.ballots ? `${fmt(c.ballots)} ballots` : ''}${c.registered ? ` · ${fmt(c.registered)} registered` : ''}</span>${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener" class="text-sky-700">source ↗</a>` : ''}</div></div>`;
   }
@@ -158,12 +179,14 @@ export function mount(el, param) {
       const tracker = yearFor('NGA') === CUR_YEAR ? irevView() : '';
       $('#lv-body').innerHTML = declaredView() + (tracker ? `<h3 class="font-bold text-[15px] pt-2">INEC IReV — result-sheet upload tracker</h3>${tracker}` : '');
     } else $('#lv-body').innerHTML = contestsView();
+    const ss = $('#lv-state'); if (ss) ss.addEventListener('change', (e) => { stateSel = e.target.value; render(); });
     const inp = $('#lv-q'); if (inp) { inp.addEventListener('input', (e) => { q = e.target.value.toLowerCase(); const pos = e.target.selectionStart; render(); const n = $('#lv-q'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }
   }
 
   el.addEventListener('click', async (e) => {
     const t = (s) => e.target.closest(s);
     if (t('[data-lc]')) { country = t('[data-lc]').dataset.lc; setCountry(country); q = ''; arch = null; elecSel = null; history.replaceState(null, '', `#/live/${country}`); render(); loadYears(); await loadArch(); render(); return; }
+    if (t('[data-office]')) { office = t('[data-office]').dataset.office; stateSel = ''; render(); return; }
     if (t('[data-elec]')) { elecSel = t('[data-elec]').dataset.elec; render(); return; }
     if (t('[data-irev]')) { irevSel = t('[data-irev]').dataset.irev; lgaSel = null; wardData = null; irevData = null; render(); await loadIrev(); render(); return; }
     if (t('[data-lga]')) { lgaSel = t('[data-lga]').dataset.lga; wardData = null; render(); el.parentElement.scrollTop = 0; return; }
@@ -172,7 +195,7 @@ export function mount(el, param) {
   });
 
   render(); loadYears(); loadArch().then(render); if (country === 'NGA') loadIrev().then(render);
-  const slow = throttle(async () => { if (country === 'NGA') await loadIrev(); if (yearFor(country) === CUR_YEAR) await loadArch(); if (document.activeElement?.id !== 'lv-q' && !document.activeElement?.matches?.('#lv-year select')) render(); else header(); }, 4000);
+  const slow = throttle(async () => { if (country === 'NGA') await loadIrev(); if (yearFor(country) === CUR_YEAR) await loadArch(); if (document.activeElement?.id !== 'lv-q' && !document.activeElement?.matches?.('#lv-year select, #lv-state')) render(); else header(); }, 4000);
   return {
     update(kind, d) {
       if (kind === 'live') slow();

@@ -1,9 +1,10 @@
+import { byCountryName } from '../model/countries.js';
 // Free, keyless YouTube live lookup: given a channel URL (@handle, /channel/UC…
 // or /c/…), fetch the public "/live" page and read which video is live now.
 // No API key or quota. Cached for 3 minutes per channel.
 import { get } from './http.js';
 
-export const DEFAULT_STREAMS = [ // handles checked Nov 2026 (each resolves to the broadcaster's channel)
+const DEFAULT_STREAMS_RAW = [ // handles checked Nov 2026 (each resolves to the broadcaster's channel)
   { id: 'ng-channels', label: 'Channels Television (Lagos)', country: 'NGA', type: 'youtube', url: 'https://www.youtube.com/@channelstelevision' },
   { id: 'ng-tvc', label: 'TVC News (Lagos)', country: 'NGA', type: 'youtube', url: 'https://www.youtube.com/@TVCNewsNigeria' },
   { id: 'us-nbc', label: 'NBC News NOW', country: 'USA', type: 'youtube', url: 'https://www.youtube.com/@NBCNews' },
@@ -12,8 +13,13 @@ export const DEFAULT_STREAMS = [ // handles checked Nov 2026 (each resolves to t
   { id: 'gb-gbnews', label: 'GB News', country: 'GBR', type: 'youtube', url: 'https://www.youtube.com/@GBNewsOnline' },
   { id: 'au-abc', label: 'ABC News Australia', country: 'AUS', type: 'youtube', url: 'https://www.youtube.com/@abcnewsaustralia' },
   { id: 'au-9news', label: '9News Australia', country: 'AUS', type: 'youtube', url: 'https://www.youtube.com/@9NewsAUS' },
-  { id: 'nz-1news', label: '1News (TVNZ)', country: 'NZL', type: 'youtube', url: 'https://www.youtube.com/@1NewsNZ' },
+  { id: 'ca-cbc', label: 'CBC News', country: 'CAN', type: 'youtube', url: 'https://www.youtube.com/@CBCNews' },
+  { id: 'ca-ctv', label: 'CTV News', country: 'CAN', type: 'youtube', url: 'https://www.youtube.com/@CTVNews' },
+  { id: 'ca-global', label: 'Global News', country: 'CAN', type: 'youtube', url: 'https://www.youtube.com/@globalnews' },
+  { id: 'ca-cpac', label: 'CPAC', country: 'CAN', type: 'youtube', url: 'https://www.youtube.com/@CPAC' },
 ];
+// Alphabetical by country name (Australia, Canada, Nigeria, United Kingdom, United States), then by name
+export const DEFAULT_STREAMS = [...DEFAULT_STREAMS_RAW].sort((a, b) => byCountryName(a.country, b.country) || String(a.name || a.label).localeCompare(String(b.name || b.label)));
 
 const cache = new Map();
 

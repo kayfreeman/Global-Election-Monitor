@@ -25,9 +25,18 @@ export function parseLouisiana(dateMDY, racesJson, votesJson, official) {
   });
 }
 
+// For the national USA view keep federal races, statewide offices and constitutional
+// amendments; leave out parish/town propositions, school boards, judges and local seats.
+export function laSignificant(c) {
+  return /^(U\.?\s?S\.?\s|Presidential Electors|Governor|Lieutenant Governor|Attorney General|Secretary of State|Treasurer|Commissioner of (Agriculture|Insurance)|CA No\.)/i.test(c.title || '') || /Constitutional Amendment/i.test(c.office || '');
+}
+// Louisiana results are one state's, not the country's: say so in every title.
+export const laLabel = (c) => ({ ...c, title: /^Louisiana — /.test(c.title) ? c.title : `Louisiana — ${c.title}`, area: 'Louisiana', stateFeed: true });
+
 export function startLouisiana(hub, cfg = {}) {
   const opt = { enabled: true, dates: 'auto', maxContests: 40, ...cfg };
   hub.source({ id: 'louisiana', name: 'Louisiana SoS results', country: 'USA', kind: 'results', docs: 'https://voterportal.sos.la.gov/graphical', note: 'Official unofficial-until-certified results JSON. Statewide and multi-parish races incl. 12 Dec 2026 runoffs.' });
+  hub.removeContests((c) => c.source === 'louisiana' && !c.stateFeed); // drop cached entries from before the Louisiana labelling/filter
   if (!opt.enabled) { hub.status('louisiana', { status: 'off' }); return; }
   let timer;
   async function run() {
@@ -40,7 +49,7 @@ export function startLouisiana(hub, cfg = {}) {
       for (const e of pick) {
         const key = ymd(e.ElectionDate);
         const [races, votes] = [await getJson(`${BASE}${key}/RacesCandidates_Multiparish.htm`), await getJson(`${BASE}${key}/Votes_Multiparish.htm`)];
-        const list = parseLouisiana(e.ElectionDate, races, votes, e.ResultsOfficial === '1').sort((a, b) => a.officeLevel - b.officeLevel).slice(0, opt.maxContests);
+        const list = parseLouisiana(e.ElectionDate, races, votes, e.ResultsOfficial === '1').filter(laSignificant).map(laLabel).sort((a, b) => a.officeLevel - b.officeLevel).slice(0, opt.maxContests);
         list.forEach((c) => hub.upsertContest(c)); n += list.length;
         const day = Date.parse(e.ElectionDate);
         if (e.ResultsOfficial !== '1' && Math.abs(Date.now() - day) < 3 * 86400000) next = 60000; // election window → every minute

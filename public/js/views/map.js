@@ -2,7 +2,7 @@
 // keyless Esri/OSM basemap) with real administrative boundaries from geoBoundaries,
 // served and cached by our server. Layers: party lead/margin, turnout,
 // reporting, incidents, and (Nigeria) LIVE IReV upload progress.
-import { state, api, esc, fmt, pct, chip, icon, def, bar, party, statusChip, simBadge, leaderLabel, setCountry, download, ago, isLive, basemap, yearFor, yearsFor, yearSelect, archiveFor } from '../core.js';
+import { state, api, esc, fmt, pct, chip, icon, def, bar, party, statusChip, simBadge, leaderLabel, setCountry, download, ago, isLive, basemap, yearFor, yearsFor, yearSelect, archiveFor, setYear, toast } from '../core.js';
 import { layout } from './tilemaps.js';
 
 const SIM_LAYERS = [['lead', 'Party lead / margin'], ['turnout', 'Turnout %'], ['reporting', 'Reporting %'], ['incidents', 'Incident overlay'], ['irev', 'LIVE · IReV uploads']];
@@ -14,6 +14,15 @@ export function norm(s) { // must match server/geo.js
   if (/federal capital|^fct\b/.test(x)) return 'fct';
   x = x.replace(/^the /, '').replace(/ (state|region|province)$/, '');
   return ({ nassarawa: 'nasarawa', 'manawatu wanganui': 'manawatu whanganui', 'akwa lbom': 'akwa ibom' })[x] || x;
+}
+
+// Electoral districts below state/province/nation (server/districts.js). US districts join on "<state>|<number>".
+const DIST_C = new Set(['AUS', 'CAN', 'GBR', 'USA']);
+const DLEVEL = new Set(['district', 'division', 'constituency']);
+function distKey(c, ct) {
+  if (c !== 'USA') return norm(ct.area);
+  const a = String(ct.area || ''); if (/at[- ]large/i.test(a)) return `${norm(ct.parent)}|0`;
+  const m = a.match(/district\s*(\d+)/i); return m ? `${norm(ct.parent)}|${+m[1]}` : null;
 }
 
 let leafletReady = null;
@@ -61,14 +70,16 @@ export function mount(el, param) {
       <aside id="mp-insp" class="col-span-12 xl:col-span-4 card p-4 flex flex-col"></aside>
     </div></div>`;
   const $ = (s) => el.querySelector(s);
+  let levelPick = false; // the Level bar's "choose a state/province/nation" picker is open
 
   // ---------- which boundaries go with the current node ----------
   function geoFor(n) {
     const c = n.country;
     if (n.level === 0 && isLive() && c === 'GBR' && !(arch && arch.contests.some((x) => x.level === 'state'))) return { adm: 'ADM2', parent: null, filter: null }; // by-elections are council-level; nation results use ADM1
     if (n.level === 0) return { adm: 'ADM1', parent: null, filter: null };
+    if (isLive() && DIST_C.has(c) && n.level === 1 && arch && arch.contests.some((x) => DLEVEL.has(x.level) && norm(x.parent) === norm(n.name))) return { adm: 'DIST', parent: n.name, filter: null };
     if (c === 'NGA' && n.level === 1) return { adm: 'ADM1', parent: null, filter: new Set(data.children.map((x) => norm(x.name))) }; // zone → its states
-    if ((c === 'NGA' && n.level === 2) || (c !== 'NGA' && n.level === 1 && n.id !== 'NZL.maori')) return { adm: 'ADM2', parent: n.name, filter: null };
+    if ((c === 'NGA' && n.level === 2) || (c !== 'NGA' && c !== 'CAN' && n.level === 1)) return { adm: 'ADM2', parent: n.name, filter: null };
     return null; // deeper levels have no public boundaries
   }
 
@@ -85,18 +96,20 @@ export function mount(el, param) {
       const pool = arch ? arch.contests : state.live.contests.filter((x) => x.country === cty);
       const stateName = cty === 'NGA' && data.node.level === 2 ? data.node.name : null;
       const hasState = pool.some((ct) => ct.level === 'state');
-      const atLevel = pool.filter((ct) => (!ct.level ? !(hasState && data.node.level <= 1) : stateName ? ct.level === 'lga' && norm(ct.parent) === norm(stateName) : data.node.level <= 1 && ct.level === 'state'));
+      const gPre = geoFor(data.node); const dist = gPre && gPre.adm === 'DIST';
+      const atLevel = dist ? pool.filter((ct) => DLEVEL.has(ct.level) && norm(ct.parent) === norm(data.node.name) && !ct.special)
+        : pool.filter((ct) => (!ct.level ? !(hasState && data.node.level <= 1) : stateName ? ct.level === 'lga' && norm(ct.parent) === norm(stateName) : data.node.level <= 1 && ct.level === 'state'));
       offices = [...new Set(atLevel.map((ct) => ct.officeType).filter(Boolean))].sort();
       if (!offices.includes(office)) office = offices.includes('PRES') ? 'PRES' : offices[0] || null;
       liveByKey = new Map();
-      for (const ct of atLevel) { if (office && ct.officeType && ct.officeType !== office) continue; const k = norm(ct.area); if (!liveByKey.has(k)) liveByKey.set(k, []); liveByKey.get(k).push(ct); }
+      for (const ct of atLevel) { if (office && ct.officeType && ct.officeType !== office) continue; const k = dist ? distKey(cty, ct) : norm(ct.area); if (!k) continue; if (!liveByKey.has(k)) liveByKey.set(k, []); liveByKey.get(k).push(ct); }
       if (insp && insp.geoOnly) { /* live mode: keep the clicked boundary selected across refreshes */ }
       else {
         if (sel && !items.find((t) => t.id === sel)) sel = null;
         if (sel) insp = await api.get(`/api/node/${encodeURIComponent(sel)}`).catch(() => null); else insp = null;
       }
       if (disposed) return;
-      const g = geoFor(data.node); const key = g ? `${data.node.country}-${g.adm}-${g.parent || ''}-${data.node.id}` : null;
+      const g = geoFor(data.node); const key = g ? `${data.node.country}-${g.adm}-${g.parent || ''}-${data.node.id}${g.adm === 'DIST' ? `-${yearFor(data.node.country)}` : ''}` : null;
       if (key !== geoKey) { geoKey = key; await drawGeo(g); } else restyle();
       renderChrome();
     } catch (e) { $('#mp-loading').textContent = e.message; }
@@ -112,15 +125,26 @@ export function mount(el, param) {
     } else irev = { states: new Map(tracked.map((t) => [norm(t.state), t])) };
   }
 
-  async function drawGeo(g) {
+  async function drawGeo(g0) { let g = g0;
     $('#mp-loading').classList.remove('hidden'); $('#mp-loading').classList.add('flex'); $('#mp-loading').textContent = 'Loading boundaries…';
     if (!g) { showTiles(true); $('#mp-loading').classList.add('hidden'); $('#mp-loading').classList.remove('flex'); return; }
     try {
       L = await loadLeaflet();
-      const fc = await api.get(`/api/geo/${data.node.country}/${g.adm}${g.parent ? `?parent=${encodeURIComponent(g.parent)}` : ''}`);
+      let fc; let distNote = '';
+      if (g.adm === 'DIST') {
+        $('#mp-loading').textContent = 'Loading district boundaries (first time can take a minute)…';
+        fc = await api.get(`/api/districts/${data.node.country}/${yearFor(data.node.country)}?parent=${encodeURIComponent(g.parent)}`).catch((e) => ({ features: [], none: true, error: e.message }));
+        if (disposed) return;
+        if (fc.none || !fc.features.length) { // no district map for this year: fall back to the general boundaries (or tiles)
+          distNote = fc.error ? `District boundaries unavailable (${fc.error}).` : `No district map matches ${yearFor(data.node.country)}; districts are listed under Live Results.`;
+          g = data.node.country === 'CAN' ? null : { adm: 'ADM2', parent: g.parent, filter: null };
+          if (!g) { geoInfo = { distNote }; showTiles(true, distNote); return; }
+        } else distNote = fc.note || '';
+      }
+      if (!fc || g.adm !== 'DIST') fc = await api.get(`/api/geo/${data.node.country}/${g.adm}${g.parent ? `?parent=${encodeURIComponent(g.parent)}` : ''}`);
       if (disposed) return;
       if (g.filter) fc.features = fc.features.filter((f) => g.filter.has(f.properties.key));
-      geoInfo = { adm: g.adm, attribution: fc.attribution, level: fc.level, count: fc.features.length, matched: fc.features.filter((f) => byKey.has(f.properties.key)).length, unmatched: items.filter((t) => !fc.features.some((f) => f.properties.key === norm(t.name))).map((t) => t.name), fc };
+      geoInfo = { distNote, adm: g.adm, attribution: fc.attribution, level: fc.level, count: fc.features.length, matched: fc.features.filter((f) => byKey.has(f.properties.key)).length, unmatched: items.filter((t) => !fc.features.some((f) => f.properties.key === norm(t.name))).map((t) => t.name), fc };
       showTiles(false);
       if (!map) {
         map = L.map($('#mp-map'), { doubleClickZoom: false, preferCanvas: true, zoomSnap: 0.25, attributionControl: true });
@@ -182,7 +206,7 @@ export function mount(el, param) {
     if (t && !isLive()) { sel = t.id; insp = await api.get(`/api/node/${encodeURIComponent(sel)}`); } else { sel = t ? t.id : null; insp = { geoOnly: f }; }
     restyle(); renderInsp();
   }
-  function drill(f) { const t = itemFor(f); if (!t || t.leaf) return; if (isLive() && !(t.country === 'NGA' && t.level === 2)) return; location.hash = `#/map/${encodeURIComponent(t.id)}`; }
+  function drill(f) { const t = itemFor(f); if (!t || t.leaf) return; if (isLive() && !(t.country === 'NGA' && t.level === 2) && !(DIST_C.has(t.country) && t.level === 1)) return; location.hash = `#/map/${encodeURIComponent(t.id)}`; }
 
   // fallback tile cartogram for levels with no public boundaries
   function showTiles(on, msg) {
@@ -198,8 +222,18 @@ export function mount(el, param) {
   function renderChrome() {
     const n = data.node; const c = n.country; const d = def(c);
     $('#mp-jur').innerHTML = state.meta.order.map((k) => `<button data-jur="${k}" class="text-[11.5px] font-mono px-2.5 py-1 rounded border ${k === c ? 'bg-sky-700 text-white border-sky-700' : 'border-slate-300 hover:bg-slate-50'}">${k} (${esc(def(k).authorityShort)})</button>`).join('');
-    const lvl = items[0] ? items[0].levelName : '';
-    $('#mp-level').innerHTML = d.levels.slice(1).map((l) => `<span class="text-[11.5px] font-mono uppercase px-2.5 py-1 rounded border ${l === lvl ? 'bg-sky-700 text-white border-sky-700' : 'border-slate-200 text-slate-400'}">${esc(l)}</span>`).join('');
+    const distOn = geoInfo && geoInfo.adm === 'DIST' && geoKey; const DL = { USA: 'Congressional District', CAN: 'Electoral District', AUS: 'Division', GBR: 'Constituency' };
+    const lvl = distOn ? DL[c] : isLive() && DL[c] && data.node.level >= 1 ? DL[c] : items[0] ? items[0].levelName : '';
+    // Live mode drills state/province/nation → electoral district (the simulated middle levels such as counties or regions have no results)
+    const lvlList = isLive() && DL[c] ? [d.levels[1], DL[c], ...d.levels.slice(d.levels.includes(DL[c]) ? d.levels.indexOf(DL[c]) + 1 : 3)] : d.levels.slice(1);
+    // Level buttons: the first is the top level (states/provinces/nations); the second drills into one of them.
+    const top = c === 'NGA' ? 1 : 0; // Nigeria's map shows states (level 2) from the country view
+    const canDrill = isLive() ? (DIST_C.has(c) && arch && arch.contests.some((x) => DLEVEL.has(x.level))) || c === 'NGA' : true;
+    const lvState = (i) => (i <= top ? 'up' : i === top + 1 && canDrill ? 'down' : 'none');
+    $('#mp-level').innerHTML = lvlList.map((l, i) => { const on = l === lvl; const st = lvState(i);
+      return `<button data-lvl="${i}" data-lvlstate="${st}" title="${st === 'none' ? 'No public boundaries or results at this level' : st === 'down' ? 'Pick one to drill into' : 'Back to this level'}" class="text-[11.5px] font-mono uppercase px-2.5 py-1 rounded border ${on ? 'bg-sky-700 text-white border-sky-700' : st === 'none' ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}">${esc(l)}${st === 'down' && !on ? ' ▾' : ''}</button>`; }).join('')
+      + (levelPick && n.level === 0 ? `<select id="mp-levelpick" class="text-[12.5px] py-1 ml-1"><option value="">Choose a ${esc((lvlList[top] || 'area').toLowerCase())}…</option>${items.slice().sort((a, b) => a.name.localeCompare(b.name)).map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>` : '');
+    const lp = $('#mp-levelpick'); if (lp) { lp.addEventListener('change', () => { if (lp.value) { levelPick = false; location.hash = `#/map/${encodeURIComponent(lp.value)}`; } }); if (levelPick === 'focus') { lp.focus(); levelPick = true; } }
     $('#mp-layers').innerHTML = layers().filter(([k]) => k !== 'irev' || c === 'NGA' || isLive()).map(([k, l]) => `<button data-layer="${k}" class="text-[11.5px] font-mono uppercase tracking-wide px-3 py-1 rounded border ${k === layer ? (k === 'irev' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-green-700 text-white border-green-700') : 'border-slate-300 hover:bg-slate-50'}">${l}</button>`).join('');
     if (isLive()) {
       yearsFor(c).then((ys) => { const b = $('#mp-year'); if (b && !b.contains(document.activeElement)) b.innerHTML = yearSelect(c, ys); });
@@ -218,6 +252,11 @@ export function mount(el, param) {
     else if (layer === 'irev' && liveByKey.size) { const f0 = [...liveByKey.values()][0][0]; note = `<span class="text-emerald-700">${esc(f0.declared ? f0.electionTitle.replace(/ — .*$/, '') : 'Results')} — ${data.node.level === 2 ? 'LGAs' : 'states'} coloured by the declared winner (INEC declared results${f0.check === 'single-source' ? ', single source' : ''}).${irev && irev.states && irev.states.size ? ' IReV upload progress shows in the inspector.' : ''}</span>`; }
     else if (layer === 'irev') note = c !== 'NGA' ? '' : irev && irev.lgas ? `<span class="text-emerald-700">Live: LGA polygons coloured by share of polling-unit result sheets uploaded to IReV for <b>${esc(irev.name)}</b>.</span>` : irev && irev.states && irev.states.size ? `<span class="text-emerald-700">Live: states with a tracked IReV election are coloured by upload progress. Double-click one to see its LGAs.</span>` : '<span class="text-slate-500">No tracked IReV election in this area.</span>';
     else if (geoInfo && geoKey && geoInfo.matched < Math.min(items.length, geoInfo.count)) note = `<span class="text-amber-700">${icon('info', 'sm')} ${geoInfo.matched} of ${items.length} ${esc(lvl.toLowerCase())}s joined to real boundaries. Sub-units below state level are synthetic placeholders, so most real boundaries here show without data until real rosters are loaded${n.id === 'NGA.SW.LA' ? ' (Lagos LGAs are real and join)' : ''}.</span>`;
+    const dy = state.meta.defaultYears?.[c];
+    if (isLive() && dy && dy !== yearFor(c) && liveByKey.size < 3) note += ` <span class="text-slate-600">Few areas have ${yearFor(c)} results yet.</span> <button data-goyear="${dy}" class="ml-1 px-2 py-0.5 rounded bg-sky-700 text-white text-[11.5px] font-semibold">Show ${dy} results →</button>`;
+    if (geoInfo && geoInfo.distNote) note += ` <span class="text-amber-700">${icon('info', 'sm')} ${esc(geoInfo.distNote)}</span>`;
+    if (isLive() && n.level === 0 && DIST_C.has(c) && arch && arch.contests.some((x) => DLEVEL.has(x.level))) note += ` <span class="text-slate-600">Double-click a ${c === 'GBR' ? 'nation' : c === 'CAN' ? 'province or territory' : 'state'} to see its ${c === 'GBR' ? 'constituencies' : c === 'AUS' ? 'divisions' : 'districts'}.</span>`;
+    if (geoInfo && geoInfo.adm === 'DIST' && geoKey && liveByKey.size) { const keys = new Set((geoInfo.fc?.features || []).map((f) => f.properties.key)); const miss = [...liveByKey.values()].map((cs) => cs[0]).filter((ct) => !keys.has(distKey(c, ct))); if (miss.length) note += ` <span class="text-amber-700">No boundary matched: ${esc(miss.slice(0, 6).map((ct) => ct.area).join(', '))}${miss.length > 6 ? ` and ${miss.length - 6} more` : ''}.</span>`; }
     $('#mp-note').innerHTML = note;
     $('#mp-attrib').innerHTML = geoInfo && geoKey ? `${esc(geoInfo.attribution)} · Basemap: ${esc(basemap().name)} · Scroll to zoom, drag to pan, click to inspect, double-click to drill in.` : '';
     $('#mp-legend').innerHTML = layer === 'lead'
@@ -239,11 +278,12 @@ export function mount(el, param) {
         const stI = irev && irev.states ? irev.states.get(f.properties.key) : null;
         const irevBlock = lg ? `<div class="mt-3 rounded border border-emerald-200 bg-emerald-50 p-2 text-[12.5px]">${chip('IReV', 'green')} ${fmt(lg.uploaded)} of ${fmt(lg.total)} polling-unit result sheets uploaded</div>`
           : stI ? `<div class="mt-3 rounded border border-emerald-200 bg-emerald-50 p-2 text-[12.5px]">${chip('IReV', 'green')} ${esc(stI.name)}: ${pct(stI.pct, 1)} of result sheets uploaded (${fmt(stI.uploaded)}/${fmt(stI.expected)})</div>` : '';
-        box.innerHTML = `<span class="lbl text-sky-700">Results · ${yearFor(data.node.country)}</span><h3 class="text-[22px] font-bold mt-1">${esc(f.properties.name)}</h3><div class="mt-1 flex flex-wrap gap-1.5">${chip('Real data', 'green')}${cs[0].declared ? chip('INEC declared', 'green') : ''}</div>${irevBlock}
+        box.innerHTML = `<span class="lbl text-sky-700">Results · ${yearFor(data.node.country)}</span><h3 class="text-[22px] font-bold mt-1">${esc(f.properties.name)}</h3><div class="mt-1 flex flex-wrap gap-1.5">${chip('Real data', 'green')}${cs[0].declared ? chip(data.node.country === 'NGA' ? 'INEC declared' : 'Official result', 'green') : ''}</div>${irevBlock}
           <div class="mt-3 space-y-3 overflow-y-auto scroll-thin max-h-[560px] pr-1">${cs.slice(0, 12).map((c) => { const tv = c.choices.reduce((a, x) => a + x.votes, 0); return `<div class="rounded border border-slate-200 p-2">
             <div class="text-[13px] font-semibold">${esc(c.title)}</div><div class="font-mono text-[10.5px] text-slate-500">${esc(c.date)}${c.reportingTotal ? ` · ${fmt(c.reportingDone)}/${fmt(c.reportingTotal)} ${esc(c.reportingLabel || '')}` : ''}${c.test ? ' · TEST' : ''}${tv ? ` · ${fmt(tv)} votes` : ''}</div>
             ${c.choices.slice(0, c.declared ? 6 : 4).map((x) => `<div class="flex items-center gap-2 text-[12.5px] mt-1"><span class="w-2 h-2 rounded-sm" style="background:${party(c.country, x.partyCode).color}"></span><span class="flex-1 truncate">${esc(x.name)} <span class="text-slate-500">${esc(x.party || '')}</span></span>${x.elected ? '<span class="text-green-700 font-mono text-[10.5px]">✓</span>' : ''}<span class="num">${fmt(x.votes)}</span><span class="num text-slate-500 w-11 text-right">${tv ? pct(x.votes / tv) : '—'}</span></div>`).join('')}</div>`; }).join('')}</div>
           ${cs[0].declared && data.node.country === 'NGA' && data.node.level <= 1 && arch && arch.contests.some((x) => x.level === 'lga' && norm(x.parent) === f.properties.key) ? `<p class="text-[12px] text-slate-500 mt-2">Double-click the state for results by LGA.</p>` : ''}
+          ${data.node.level === 0 && itemFor(f) && (DIST_C.has(data.node.country) && arch && arch.contests.some((x) => DLEVEL.has(x.level) && norm(x.parent) === f.properties.key) || data.node.country === 'NGA') ? `<button data-mapto="${esc(itemFor(f).id)}" class="mt-3 py-2 rounded border border-sky-700 text-sky-700 text-center text-[12.5px] font-semibold hover:bg-sky-50">${icon('zoom_in_map', 'sm')} SHOW ${data.node.country === 'NGA' ? 'LGAS' : data.node.country === 'GBR' ? 'CONSTITUENCIES' : data.node.country === 'AUS' ? 'DIVISIONS' : data.node.country === 'CAN' ? 'RIDINGS' : 'HOUSE DISTRICTS'} →</button>` : ''}
           ${cs[0].url ? `<a href="${esc(cs[0].url)}" target="_blank" rel="noopener" class="text-[11.5px] text-sky-700 mt-2">Source ↗</a>` : ''}
           <a href="#/live/${data.node.country}" class="mt-3 py-2 rounded bg-sky-700 text-white text-center text-[12.5px] font-semibold">OPEN IN RESULTS →</a>`;
         return;
@@ -254,7 +294,7 @@ export function mount(el, param) {
         : isLive() ? `<p class="text-[13px] text-slate-600 mt-2">No live results reported for this area.</p>` : `<p class="text-[13px] text-slate-600 mt-2">Real boundary with no matching data unit. Sub-units at this level are synthetic placeholders until the real roster (e.g. INEC LGA list, US county FIPS) is loaded.</p>`}`;
       return;
     }
-    if (!insp) { box.innerHTML = `<p class="text-sm text-slate-500">Click an area on the map to inspect it. ${isLive() ? 'Coloured areas have real results for the selected year. Double-click a Nigerian state to see its LGAs.' : 'Double-click to drill in.'}</p>${!isLive() && geoInfo && geoInfo.unmatched && geoInfo.unmatched.length && geoKey && data.node.level === 0 ? `<p class="text-[11.5px] text-amber-700 mt-3">No boundary for: ${esc(geoInfo.unmatched.join(', '))}</p>` : ''}`; return; }
+    if (!insp) { box.innerHTML = `<p class="text-sm text-slate-500">Click an area on the map to inspect it. ${isLive() ? 'Coloured areas have real results for the selected year. Double-click a state, province or nation to see its districts (Nigeria: its LGAs).' : 'Double-click to drill in.'}</p>${!isLive() && geoInfo && geoInfo.unmatched && geoInfo.unmatched.length && geoKey && data.node.level === 0 ? `<p class="text-[11.5px] text-amber-700 mt-3">No boundary for: ${esc(geoInfo.unmatched.join(', '))}</p>` : ''}`; return; }
     const n = insp.node; const c = n.country; const d = def(c);
     box.innerHTML = `<div class="flex items-center justify-between"><span class="lbl text-sky-700">Subdivision inspector</span><span class="font-mono text-[11px] text-slate-500">${esc(n.id)}</span></div>
       <h3 class="text-[22px] font-bold tracking-tight mt-1 leading-tight">${esc(n.name).toUpperCase()}</h3>
@@ -276,8 +316,16 @@ export function mount(el, param) {
 
   el.addEventListener('click', async (e) => {
     const j = e.target.closest('[data-jur]'); if (j) { setCountry(j.dataset.jur); location.hash = `#/map/${j.dataset.jur}`; return; }
+    const gy = e.target.closest('[data-goyear]'); if (gy && data) { setYear(data.node.country, +gy.dataset.goyear); return; }
     const of = e.target.closest('[data-office]'); if (of) { office = of.dataset.office; insp = null; sel = null; load(); return; }
     const l = e.target.closest('[data-layer]'); if (l) { layer = l.dataset.layer; restyle(); renderChrome(); if (!$('#mp-tiles').classList.contains('hidden')) showTiles(true); return; }
+    const lv = e.target.closest('[data-lvl]');
+    if (lv && data) {
+      const st = lv.dataset.lvlstate; const n = data.node;
+      if (st === 'up') { if (n.level > 0 && !(n.country === 'NGA' && n.level === 1)) location.hash = `#/map/${n.country}`; return; }
+      if (st === 'down') { if (n.level === 0) { levelPick = 'focus'; renderChrome(); } return; }
+      toast('No public boundaries or results exist at this level', 'amber'); return;
+    }
     const m = e.target.closest('[data-mapto]'); if (m) { location.hash = `#/map/${encodeURIComponent(m.dataset.mapto)}`; return; }
     const t = e.target.closest('[data-tile]'); if (t) { sel = t.dataset.tile; insp = await api.get(`/api/node/${encodeURIComponent(sel)}`); showTiles(true); renderInsp(); return; }
     if (e.target.closest('[data-fit]') && map && gj) { map.fitBounds(gj.getBounds(), { padding: [12, 12] }); return; }

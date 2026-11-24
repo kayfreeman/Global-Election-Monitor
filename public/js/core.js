@@ -16,7 +16,8 @@ export function setCountry(c) { state.country = c; lsSet('gp.country', c); emit(
 
 // ---------- election year (per country) ----------
 export const CUR_YEAR = new Date().getFullYear();
-export const yearFor = (c) => state.year[c] || CUR_YEAR;
+// the year you picked, otherwise the country's latest year with full official results (from the server)
+export const yearFor = (c) => state.year[c] || state.meta?.defaultYears?.[c] || CUR_YEAR;
 export function setYear(c, y) { state.year[c] = +y; lsSet('gp.years', JSON.stringify(state.year)); emit('year', { country: c, year: +y }); }
 const yearsCache = {}; const archCache = new Map();
 /** Years with results for a country: [{year, sources:[...]}], newest first. */
@@ -30,7 +31,7 @@ export async function archiveFor(c, y) {
 /** Year dropdown; the shell turns a change into setYear(). */
 export function yearSelect(c, years, cls = '', compact = false) {
   const cur = yearFor(c); const list = years.some((x) => x.year === cur) ? years : [{ year: cur, sources: [] }, ...years];
-  return `<label class="${compact ? 'flex flex-col gap-1' : 'inline-flex items-center gap-1.5'} ${cls}"><span class="lbl">Election year</span><select data-year-select="${c}" class="text-[13px] font-mono py-1 ${compact ? 'w-full' : ''}" title="Years with results from the official sources">${list.map((x) => `<option value="${x.year}" ${x.year === cur ? 'selected' : ''}>${x.year}${x.sources.length ? ` · ${compact ? x.sources.map((s) => s.slice(0, 4)).join('/') : x.sources.join(', ')}` : ''}</option>`).join('')}</select></label>`;
+  return `<label class="${compact ? 'flex flex-col gap-1' : 'inline-flex items-center gap-1.5'} ${cls}"><span class="lbl">Election year</span><select data-year-select="${c}" class="text-[13px] font-mono py-1 ${compact ? 'w-full' : ''}" title="Years with results. P·S·H = President · Senate · House nationwide; LA only = Louisiana state races only">${list.map((x) => `<option value="${x.year}" ${x.year === cur ? 'selected' : ''}>${x.year}${x.label != null ? (x.label ? ` · ${compact ? x.short : x.label}` : '') : x.sources.length ? ` · ${compact ? x.sources.map((s) => s.slice(0, 4)).join('/') : x.sources.join(', ')}` : ''}</option>`).join('')}</select></label>`;
 }
 
 // ---------- API ----------
@@ -97,7 +98,7 @@ export function ago(iso) {
   return s < 60 ? `${Math.floor(s)}s ago` : s < 3600 ? `${Math.floor(s / 60)}m ago` : s < 172800 ? `${Math.floor(s / 3600)}h ago` : `${Math.floor(s / 86400)}d ago`;
 }
 // Colours for parties that appear in real results but not in the core list
-const EXTRA_PARTY = { NGA: { A: '#0891b2', APGA: '#d97706', SDP: '#ea580c', ADC: '#65a30d', YPP: '#db2777', AA: '#7c3aed', ADP: '#0d9488', AAC: '#be123c', ZLP: '#4d7c0f', APM: '#a16207', PRP: '#c026d3', APP: '#0369a1', CPC: '#0ea5e9', ACN: '#0f766e', ANPP: '#a16207', YP: '#e11d48', NRM: '#57534e', BP: '#78716c' } };
+const EXTRA_PARTY = { GBR: { PC: '#15803d', DUP: '#b45309', SF: '#065f46', SDLP: '#65a30d', APNI: '#eab308', UUP: '#38bdf8', TUV: '#1e3a8a', OTH: '#94a3b8' }, CAN: { BQ: '#0ea5e9' }, NGA: { A: '#0891b2', APGA: '#d97706', SDP: '#ea580c', ADC: '#65a30d', YPP: '#db2777', AA: '#7c3aed', ADP: '#0d9488', AAC: '#be123c', ZLP: '#4d7c0f', APM: '#a16207', PRP: '#c026d3', APP: '#0369a1', CPC: '#0ea5e9', ACN: '#0f766e', ANPP: '#a16207', YP: '#e11d48', NRM: '#57534e', BP: '#78716c' } };
 export function party(country, code) {
   const p = state.meta?.countries[country]?.parties.find((x) => x.code === code);
   if (p) return p; const x = EXTRA_PARTY[country]?.[code];

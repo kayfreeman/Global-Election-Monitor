@@ -207,7 +207,8 @@ function liveNotice(el) {
     <p class="text-[14px] text-slate-600 mt-1">The cascading drilldown here was built on simulated tallies, so it is hidden in live mode. Real cascading reports are on <b>Live Results</b>:</p>
     <ul class="text-[14px] mt-3 space-y-2">
       <li>${icon('account_tree', 'sm text-sky-700')} <b>Nigeria</b> — INEC IReV: election › LGA › ward › polling unit, with each EC8A result sheet${t ? ` (e.g. ${esc(t.name)})` : ''}. <a class="text-sky-700" href="#/live/NGA">Open →</a></li>
-      <li>${icon('how_to_vote', 'sm text-sky-700')} <b>USA</b> — Louisiana races with precincts reporting. <a class="text-sky-700" href="#/live/USA">Open →</a></li>
+      <li>${icon('how_to_vote', 'sm text-sky-700')} <b>USA</b> — President, Senate and House 1976–2024 by state and district, plus Louisiana races with precincts reporting. <a class="text-sky-700" href="#/live/USA">Open →</a></li>
+      <li>${icon('how_to_vote', 'sm text-sky-700')} <b>Canada</b> — federal general elections 2006–2025: province › electoral district › every candidate (Elections Canada). <a class="text-sky-700" href="#/live/CAN">Open →</a></li>
       <li>${icon('how_to_vote', 'sm text-sky-700')} <b>UK</b> — declared council by-elections (Democracy Club). <a class="text-sky-700" href="#/live/GBR">Open →</a></li>
       <li>${icon('how_to_vote', 'sm text-sky-700')} <b>Australia</b> — VEC feed (test data until access is approved). <a class="text-sky-700" href="#/live/AUS">Open →</a></li></ul>
     <p class="text-[12.5px] text-slate-500 mt-3">To explore the full simulated drilldown, switch the data mode in <a class="text-sky-700" href="#/settings">Settings</a>.</p></div></div>`;
